@@ -11,7 +11,7 @@
 ### From PyPI (prebuilt wheels)
 
 ```bash
-pip install tsunami
+pip install tsunami-wave
 ```
 
 No Rust toolchain needed — binary wheels include the compiled extension.
@@ -29,7 +29,7 @@ uv run maturin develop
 
 ```toml
 # In your pyproject.toml
-dependencies = ["tsunami"]
+dependencies = ["tsunami-wave"]
 ```
 
 ## Verify the installation
