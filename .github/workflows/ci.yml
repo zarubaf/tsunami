@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - run: uv sync --dev
+      - run: uv run maturin develop
+      - run: uv run pytest tests/ -v
+
+  build:
+    needs: test
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64
+          - os: ubuntu-latest
+            target: aarch64
+          - os: macos-latest
+            target: x86_64
+          - os: macos-latest
+            target: aarch64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist
+          manylinux: auto
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}-${{ matrix.target }}
+          path: dist/
+
+  sdist:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/
