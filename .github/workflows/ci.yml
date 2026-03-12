@@ -61,3 +61,17 @@ jobs:
         with:
           name: sdist
           path: dist/
+
+  docs:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - run: uv sync --extra docs
+      - run: uv run maturin develop
+      - run: uv run mkdocs gh-deploy --force

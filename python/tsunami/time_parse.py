@@ -1,4 +1,21 @@
-"""Time string parser — converts human-readable time to picoseconds."""
+"""Time string parser — converts human-readable time strings to picoseconds.
+
+Tsunami accepts time values in multiple formats across the CLI, MCP server,
+and Python API. This module provides the [`parse_time`][tsunami.time_parse.parse_time]
+function that normalises all of them to integer picoseconds.
+
+Supported formats:
+
+| Input | Result |
+|---|---|
+| `100` (int/float) | `100` (raw passthrough) |
+| `"100ps"` | `100` |
+| `"1284ns"` | `1_284_000` |
+| `"1.284us"` or `"1.284µs"` | `1_284_000` |
+| `"1ms"` | `1_000_000_000` |
+| `"1s"` | `1_000_000_000_000` |
+| `"642cyc"` | `642 * timescale_ps` (requires `timescale_ps`) |
+"""
 
 from __future__ import annotations
 
@@ -21,10 +38,29 @@ _MULTIPLIERS: dict[str, float] = {
 def parse_time(value: int | float | str, timescale_ps: int | None = None) -> int:
     """Parse a time value into picoseconds.
 
-    Accepts:
-        - int/float: treated as raw picoseconds
-        - "1284ns", "1.284us", "100ps", etc.
-        - "642cyc": requires timescale_ps
+    Args:
+        value: Time as an integer (raw picoseconds), float, or string with
+            a unit suffix (`"1284ns"`, `"1.284us"`, `"642cyc"`, etc.).
+        timescale_ps: Clock period in picoseconds, required when using the
+            `"cyc"` unit. Obtain from
+            [`waveform_info()`][tsunami._engine.waveform_info].
+
+    Returns:
+        Time in picoseconds as an integer.
+
+    Raises:
+        ValueError: If the string cannot be parsed or `"cyc"` is used without
+            `timescale_ps`.
+
+    Example:
+        ```python
+        from tsunami.time_parse import parse_time
+
+        parse_time(1234)        # 1234
+        parse_time("1284ns")    # 1_284_000
+        parse_time("1.284us")   # 1_284_000
+        parse_time("642cyc", timescale_ps=1000)  # 642_000
+        ```
     """
     if isinstance(value, (int, float)):
         return int(value)

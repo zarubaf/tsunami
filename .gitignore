@@ -30,3 +30,6 @@ venv/
 # OS
 .DS_Store
 *.dSYM/
+
+# Docs build
+site/

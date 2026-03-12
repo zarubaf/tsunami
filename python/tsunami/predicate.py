@@ -1,7 +1,46 @@
 """Predicate DSL — composable expressions for waveform queries.
 
-Builds a pure data structure (AST) that is handed to the Rust evaluator
-in a single PyO3 call. No execution happens in Python.
+This module provides a Python DSL for building signal predicates that are
+evaluated entirely in Rust. Expressions are pure data structures (an AST) —
+no waveform access happens in Python. The entire expression tree is handed
+to the Rust evaluator in a single PyO3 call.
+
+## Quick start
+
+```python
+from tsunami.predicate import Signal, scope
+
+# Direct signal references
+clk = Signal("tb.dut.clk")
+valid = Signal("tb.dut.tl_a_valid")
+
+# Using a scope prefix
+with scope("tb.dut") as s:
+    handshake = s.tl_a_valid & s.tl_a_ready
+    acquire = handshake & (s.tl_a_opcode == 4)
+
+# Compose with operators
+rising_valid = valid.rise()
+sequence = acquire >> (s.tl_d_valid, 50_000)  # with time window
+violation = s.tl_d_valid.rise().preceded_by(acquire, within_ps=50_000).__invert__()
+```
+
+## Supported operators
+
+| Syntax | Meaning |
+|---|---|
+| `a & b` | Logical AND |
+| `a \\| b` | Logical OR |
+| `~a` | Logical NOT |
+| `a ^ b` | Logical XOR |
+| `sig == val` | Signal equals constant |
+| `sig > val` / `sig < val` | Unsigned comparison |
+| `sig.rise()` | Rising edge (0 -> non-zero) |
+| `sig.fall()` | Falling edge (non-zero -> 0) |
+| `a >> b` | Sequence: a followed by b |
+| `a >> (b, window_ps)` | Sequence with time window |
+| `a.preceded_by(b, within_ps=N)` | b occurred before a within window |
+| `sig[7:0]` | Bitfield extraction |
 """
 
 from __future__ import annotations
@@ -12,54 +51,79 @@ from typing import Optional
 
 @dataclass(frozen=True, eq=False)
 class Expr:
-    """Base expression node. All nodes have a 'tag' used by Rust's FromPyObject."""
+    """Base class for all predicate expression nodes.
+
+    All expression nodes carry a `tag` string that the Rust evaluator uses
+    to identify the node type via `FromPyObject`. You normally don't construct
+    `Expr` directly — use [`Signal`][tsunami.predicate.Signal] and operators instead.
+    """
 
     tag: str
 
     def __and__(self, other: Expr) -> Expr:
+        """Logical AND: `a & b` is true when both operands are non-zero."""
         return And(left=self, right=_coerce(other))
 
     def __rand__(self, other: Expr) -> Expr:
         return And(left=_coerce(other), right=self)
 
     def __or__(self, other: Expr) -> Expr:
+        """Logical OR: `a | b` is true when either operand is non-zero."""
         return Or(left=self, right=_coerce(other))
 
     def __ror__(self, other: Expr) -> Expr:
         return Or(left=_coerce(other), right=self)
 
     def __invert__(self) -> Expr:
+        """Logical NOT: `~a` is true when the operand is zero."""
         return Not(inner=self)
 
     def __xor__(self, other: Expr) -> Expr:
+        """Logical XOR: `a ^ b` is true when exactly one operand is non-zero."""
         return Xor(left=self, right=_coerce(other))
 
     def __rxor__(self, other: Expr) -> Expr:
         return Xor(left=_coerce(other), right=self)
 
     def __eq__(self, other: object) -> Expr:  # type: ignore[override]
+        """Equality: `sig == 4` is true when the signal's value equals 4."""
         return Eq(left=self, right=_coerce(other))
 
     def __gt__(self, other: object) -> Expr:  # type: ignore[override]
+        """Unsigned greater-than comparison."""
         return Gt(left=self, right=_coerce(other))
 
     def __lt__(self, other: object) -> Expr:  # type: ignore[override]
+        """Unsigned less-than comparison."""
         return Lt(left=self, right=_coerce(other))
 
     def __rshift__(self, other) -> Expr:
-        """Sequence operator: self >> other or self >> (other, window_ps)."""
+        """Sequence operator.
+
+        - `a >> b` — a followed by b (unbounded).
+        - `a >> (b, window_ps)` — a followed by b within `window_ps` picoseconds.
+        """
         if isinstance(other, tuple) and len(other) == 2:
             expr, window = other
             return Sequence(a=self, b=_coerce(expr), within_ps=int(window))
         return Sequence(a=self, b=_coerce(other), within_ps=None)
 
     def rise(self) -> Expr:
+        """Rising edge: true at the transition from zero to non-zero."""
         return Rise(inner=self)
 
     def fall(self) -> Expr:
+        """Falling edge: true at the transition from non-zero to zero."""
         return Fall(inner=self)
 
     def preceded_by(self, other: Expr, within_ps: int | None = None) -> Expr:
+        """True when `self` is true AND `other` was true within `within_ps` before.
+
+        Args:
+            other: The preceding condition.
+            within_ps: Maximum lookback window in picoseconds. If `None`, searches
+                the entire history.
+        """
         return PrecededBy(a=self, b=_coerce(other), within_ps=within_ps)
 
 
@@ -74,7 +138,28 @@ def _coerce(value: object) -> Expr:
 
 @dataclass(frozen=True, eq=False)
 class Signal(Expr):
-    """Reference to a waveform signal by hierarchical path."""
+    """Reference to a waveform signal by its full hierarchical path.
+
+    This is the primary leaf node in predicate expressions. The path must
+    match a signal in the waveform file exactly (dot-separated hierarchy).
+
+    Args:
+        path: Full hierarchical path, e.g. `"tb.dut.tl_a_valid"`.
+
+    Example:
+        ```python
+        clk = Signal("tb.dut.clk")
+        opcode = Signal("tb.dut.tl_a_opcode")
+
+        # Use in expressions
+        rising_clk = clk.rise()
+        is_get = opcode == 4
+
+        # Bitfield extraction
+        low_nibble = opcode[3:0]
+        single_bit = opcode[2]
+        ```
+    """
 
     tag: str = "signal"
     path: str = ""
@@ -84,7 +169,7 @@ class Signal(Expr):
         object.__setattr__(self, "path", path)
 
     def __getitem__(self, key) -> Expr:
-        """Bitfield extraction: sig[7:0] or sig[3]."""
+        """Extract a bitfield: `sig[7:0]` for a range or `sig[3]` for a single bit."""
         if isinstance(key, slice):
             high = key.start if key.start is not None else 0
             low = key.stop if key.stop is not None else 0
@@ -215,7 +300,22 @@ class SignalsProxy:
 
 
 class scope:
-    """Context manager for hierarchy prefix."""
+    """Context manager that sets a hierarchy prefix for signal access.
+
+    Attribute access on the yielded proxy creates
+    [`Signal`][tsunami.predicate.Signal] objects with the prefix prepended.
+
+    Args:
+        prefix: Hierarchy prefix (e.g. `"tb.dut.core"`).
+
+    Example:
+        ```python
+        with scope("tb.dut") as s:
+            handshake = s.tl_a_valid & s.tl_a_ready
+            # equivalent to:
+            # Signal("tb.dut.tl_a_valid") & Signal("tb.dut.tl_a_ready")
+        ```
+    """
 
     def __init__(self, prefix: str):
         self._prefix = prefix
@@ -228,7 +328,20 @@ class scope:
 
 
 class signals:
-    """Context manager for aliased signal bindings."""
+    """Context manager for aliased signal bindings.
+
+    Maps short alias names to full signal paths. Useful when working with
+    signals from a configuration dict.
+
+    Args:
+        **kwargs: Mapping of alias name to full signal path.
+
+    Example:
+        ```python
+        with signals(v="tb.dut.tl_a_valid", r="tb.dut.tl_a_ready") as s:
+            handshake = s.v & s.r
+        ```
+    """
 
     def __init__(self, **kwargs: str):
         self._mapping = kwargs

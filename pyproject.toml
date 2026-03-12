@@ -24,6 +24,10 @@ dependencies = [
 dev = [
     "pytest>=8.0",
 ]
+docs = [
+    "mkdocs-material>=9.0",
+    "mkdocstrings[python]>=0.27",
+]
 
 [project.scripts]
 tsunami = "tsunami.cli:main"
