@@ -1078,7 +1078,7 @@ wheels = [
 ]
 
 [[package]]
-name = "tsunami"
+name = "tsunami-wave"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
