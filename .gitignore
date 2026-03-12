@@ -31,5 +31,9 @@ venv/
 .DS_Store
 *.dSYM/
 
+# Waveform files
+*.fst
+*.vcd
+
 # Docs build
 site/
