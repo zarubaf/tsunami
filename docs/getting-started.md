@@ -19,7 +19,7 @@ No Rust toolchain needed — binary wheels include the compiled extension.
 ### From source
 
 ```bash
-git clone https://github.com/axelera-ai/tsunami.git
+git clone https://github.com/zarubaf/tsunami.git
 cd tsunami
 uv sync
 uv run maturin develop

@@ -1,7 +1,7 @@
 site_name: Tsunami
 site_description: AI-assisted hardware waveform debugging tool
-repo_url: https://github.com/axelera-ai/tsunami
-repo_name: axelera-ai/tsunami
+repo_url: https://github.com/zarubaf/tsunami
+repo_name: zarubaf/tsunami
 
 theme:
   name: material
