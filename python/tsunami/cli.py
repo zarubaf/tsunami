@@ -124,7 +124,10 @@ def cmd_summarize(args):
 
 def cmd_serve(args):
     from tsunami.server import start_server
-    print(f"Starting tsunami MCP server for: {args.file}", file=sys.stderr)
+    if args.file:
+        print(f"Starting tsunami MCP server for: {args.file}", file=sys.stderr)
+    else:
+        print("Starting tsunami MCP server (no file pre-loaded)", file=sys.stderr)
     start_server(args.file)
 
 
@@ -194,7 +197,7 @@ def main():
 
     # serve
     p = subparsers.add_parser("serve", help="Start MCP server")
-    p.add_argument("file", help="Waveform file (FST/VCD)")
+    p.add_argument("file", nargs="?", default=None, help="Waveform file (FST/VCD), optional")
     p.set_defaults(func=cmd_serve)
 
     args = parser.parse_args()

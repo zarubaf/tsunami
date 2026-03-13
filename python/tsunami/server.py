@@ -16,14 +16,34 @@ from tsunami.predicate import (
 
 mcp = FastMCP("tsunami")
 
-# Global waveform handle — set when server starts
+# Global waveform handle — set dynamically via open_waveform tool or at startup
 _handle = None
 _timescale_ps = None
 
 
+def _load_waveform(fst_path: str):
+    """Open a waveform file and set the global handle."""
+    global _handle, _timescale_ps
+
+    _handle = engine.open(fst_path)
+    info = engine.waveform_info(_handle)
+    factor = info.get("timescale_factor", 1)
+    unit = info.get("timescale_unit", "ps")
+    unit_ps = {
+        "FemtoSeconds": 0.001,
+        "PicoSeconds": 1,
+        "NanoSeconds": 1_000,
+        "MicroSeconds": 1_000_000,
+        "MilliSeconds": 1_000_000_000,
+        "Seconds": 1_000_000_000_000,
+    }.get(unit, 1)
+    _timescale_ps = int(factor * unit_ps)
+    return info
+
+
 def _get_handle():
     if _handle is None:
-        raise RuntimeError("No waveform file loaded. Start with: tsunami serve <file.fst>")
+        raise RuntimeError("No waveform loaded. Call open_waveform(path) first.")
     return _handle
 
 
@@ -79,6 +99,18 @@ def _expr_from_json(data: dict | str) -> object:
         )
     else:
         raise ValueError(f"Unknown expression tag: {tag}")
+
+
+@mcp.tool()
+def open_waveform(path: str) -> dict:
+    """Open a waveform file (FST or VCD). Must be called before any other tool.
+
+    Returns waveform metadata: timescale, duration, signal count, format.
+
+    Args:
+        path: Absolute path to the waveform file.
+    """
+    return _load_waveform(path)
 
 
 @mcp.tool()
@@ -208,23 +240,9 @@ def find_anomalies(
     return engine.find_anomalies(_get_handle(), signal, t0_ps, t1_ps, expected_period_ps)
 
 
-def start_server(fst_path: str):
-    """Initialize the waveform handle and start the MCP server."""
-    global _handle, _timescale_ps
-
-    _handle = engine.open(fst_path)
-    info = engine.waveform_info(_handle)
-    # Compute timescale in picoseconds
-    factor = info.get("timescale_factor", 1)
-    unit = info.get("timescale_unit", "ps")
-    unit_ps = {
-        "FemtoSeconds": 0.001,
-        "PicoSeconds": 1,
-        "NanoSeconds": 1_000,
-        "MicroSeconds": 1_000_000,
-        "MilliSeconds": 1_000_000_000,
-        "Seconds": 1_000_000_000_000,
-    }.get(unit, 1)
-    _timescale_ps = int(factor * unit_ps)
+def start_server(fst_path: str | None = None):
+    """Start the MCP server, optionally pre-loading a waveform file."""
+    if fst_path:
+        _load_waveform(fst_path)
 
     mcp.run(transport="stdio")
