@@ -120,7 +120,12 @@ Add to your Claude Code MCP config:
 }
 ```
 
-Available tools: `waveform_info`, `search_signals`, `browse_scopes`, `get_snapshot`, `get_signal_window`, `find_first_match`, `find_all_matches`, `find_anomalies`.
+Available tools: `open_waveform`, `waveform_info`, `search_signals`, `browse_scopes`, `get_signal_info`, `get_snapshot`, `get_signal_window`, `find_first_match`, `find_all_matches`, `find_anomalies`.
+
+The MCP server is session-based. `open_waveform` returns a `session_id`, and all
+other waveform tools require that session ID. If you start the server with
+`tsunami serve sim.fst`, the preloaded waveform is available as session
+`default`.
 
 ## Architecture
 

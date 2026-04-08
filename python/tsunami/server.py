@@ -3,30 +3,46 @@
 from __future__ import annotations
 
 import json
-import sys
+from dataclasses import dataclass
 
 from mcp.server.fastmcp import FastMCP
 
 import tsunami._engine as engine
-from tsunami.time_parse import parse_time
 from tsunami.predicate import (
-    Signal, Const, And, Or, Not, Xor, Eq, Gt, Lt,
-    Rise, Fall, BitSlice, Sequence, PrecededBy,
+    And,
+    BitSlice,
+    Const,
+    Eq,
+    Fall,
+    Gt,
+    Lt,
+    Not,
+    Or,
+    PrecededBy,
+    Rise,
+    Sequence,
+    Signal,
+    Xor,
 )
+from tsunami.time_parse import parse_time
 
 mcp = FastMCP("tsunami")
 
-# Global waveform handle — set dynamically via open_waveform tool or at startup
-_handle = None
-_timescale_ps = None
+DEFAULT_SESSION_ID = "default"
 
 
-def _load_waveform(fst_path: str):
-    """Open a waveform file and set the global handle."""
-    global _handle, _timescale_ps
+@dataclass
+class WaveformSession:
+    handle: object
+    timescale_ps: int
+    path: str
 
-    _handle = engine.open(fst_path)
-    info = engine.waveform_info(_handle)
+
+_sessions: dict[str, WaveformSession] = {}
+_next_session_id = 1
+
+
+def _timescale_ps_from_info(info: dict) -> int:
     factor = info.get("timescale_factor", 1)
     unit = info.get("timescale_unit", "ps")
     unit_ps = {
@@ -37,24 +53,44 @@ def _load_waveform(fst_path: str):
         "MilliSeconds": 1_000_000_000,
         "Seconds": 1_000_000_000_000,
     }.get(unit, 1)
-    _timescale_ps = int(factor * unit_ps)
-    return info
+    return int(factor * unit_ps)
 
 
-def _get_handle():
-    if _handle is None:
-        raise RuntimeError("No waveform loaded. Call open_waveform(path) first.")
-    return _handle
+def _new_session_id() -> str:
+    global _next_session_id
+    session_id = f"session-{_next_session_id}"
+    _next_session_id += 1
+    return session_id
 
 
-def _parse_t(value: str | int) -> int:
-    return parse_time(value, timescale_ps=_timescale_ps)
+def _create_session(path: str, session_id: str | None = None) -> tuple[str, dict]:
+    handle = engine.open(path)
+    info = engine.waveform_info(handle)
+    assigned_session_id = session_id or _new_session_id()
+    _sessions[assigned_session_id] = WaveformSession(
+        handle=handle,
+        timescale_ps=_timescale_ps_from_info(info),
+        path=path,
+    )
+    return assigned_session_id, info
+
+
+def _get_session(session_id: str) -> WaveformSession:
+    try:
+        return _sessions[session_id]
+    except KeyError as exc:
+        raise RuntimeError(
+            f"Unknown waveform session '{session_id}'. Call open_waveform(path) first."
+        ) from exc
+
+
+def _parse_t(session: WaveformSession, value: str | int) -> int:
+    return parse_time(value, timescale_ps=session.timescale_ps)
 
 
 def _expr_from_json(data: dict | str) -> object:
     """Recursively build an Expr from a JSON-serializable dict."""
     if isinstance(data, str):
-        # Assume signal path
         return Signal(data)
     if isinstance(data, (int, float)):
         return Const(int(data))
@@ -63,91 +99,123 @@ def _expr_from_json(data: dict | str) -> object:
 
     if tag == "signal":
         return Signal(data["path"])
-    elif tag == "const":
+    if tag == "const":
         return Const(data["value"])
-    elif tag == "and":
+    if tag == "and":
         return And(left=_expr_from_json(data["left"]), right=_expr_from_json(data["right"]))
-    elif tag == "or":
+    if tag == "or":
         return Or(left=_expr_from_json(data["left"]), right=_expr_from_json(data["right"]))
-    elif tag == "not":
+    if tag == "not":
         return Not(inner=_expr_from_json(data["inner"]))
-    elif tag == "xor":
+    if tag == "xor":
         return Xor(left=_expr_from_json(data["left"]), right=_expr_from_json(data["right"]))
-    elif tag == "eq":
+    if tag == "eq":
         return Eq(left=_expr_from_json(data["left"]), right=_expr_from_json(data["right"]))
-    elif tag == "gt":
+    if tag == "gt":
         return Gt(left=_expr_from_json(data["left"]), right=_expr_from_json(data["right"]))
-    elif tag == "lt":
+    if tag == "lt":
         return Lt(left=_expr_from_json(data["left"]), right=_expr_from_json(data["right"]))
-    elif tag == "rise":
+    if tag == "rise":
         return Rise(inner=_expr_from_json(data["inner"]))
-    elif tag == "fall":
+    if tag == "fall":
         return Fall(inner=_expr_from_json(data["inner"]))
-    elif tag == "bit_slice":
+    if tag == "bit_slice":
         return BitSlice(inner=_expr_from_json(data["inner"]), high=data["high"], low=data["low"])
-    elif tag == "sequence":
+    if tag == "sequence":
         return Sequence(
             a=_expr_from_json(data["a"]),
             b=_expr_from_json(data["b"]),
             within_ps=data.get("within_ps"),
         )
-    elif tag == "preceded_by":
+    if tag == "preceded_by":
         return PrecededBy(
             a=_expr_from_json(data["a"]),
             b=_expr_from_json(data["b"]),
             within_ps=data.get("within_ps"),
         )
-    else:
-        raise ValueError(f"Unknown expression tag: {tag}")
+    raise ValueError(f"Unknown expression tag: {tag}")
 
 
 @mcp.tool()
 def open_waveform(path: str) -> dict:
-    """Open a waveform file (FST or VCD). Must be called before any other tool.
-
-    Returns waveform metadata: timescale, duration, signal count, format.
+    """Open a waveform file (FST or VCD) and return a session ID.
 
     Args:
         path: Absolute path to the waveform file.
     """
-    return _load_waveform(path)
+    session_id, info = _create_session(path)
+    return {
+        "session_id": session_id,
+        "path": path,
+        **info,
+    }
 
 
 @mcp.tool()
-def waveform_info() -> dict:
-    """Get waveform metadata: timescale, duration, signal count, format."""
-    return engine.waveform_info(_get_handle())
+def waveform_info(session_id: str) -> dict:
+    """Get waveform metadata for an open waveform session."""
+    session = _get_session(session_id)
+    return {
+        "session_id": session_id,
+        "path": session.path,
+        **engine.waveform_info(session.handle),
+    }
 
 
 @mcp.tool()
-def search_signals(pattern: str = "*") -> list[dict]:
-    """Search for signals matching a glob pattern. Always start here for signal discovery.
+def search_signals(session_id: str, pattern: str = "*") -> dict:
+    """Search for signals matching a glob pattern in a waveform session.
 
     Examples: "*clk*", "tb.dut.*valid*", "*tl_a*"
     """
-    return engine.list_signals(_get_handle(), pattern)
+    session = _get_session(session_id)
+    return {
+        "session_id": session_id,
+        "signals": engine.list_signals(session.handle, pattern),
+    }
 
 
 @mcp.tool()
-def browse_scopes(prefix: str = "") -> list[str]:
-    """Browse the signal hierarchy. Returns scope names under the given prefix."""
-    return engine.list_scopes(_get_handle(), prefix)
+def browse_scopes(session_id: str, prefix: str = "") -> dict:
+    """Browse the signal hierarchy for an open waveform session."""
+    session = _get_session(session_id)
+    return {
+        "session_id": session_id,
+        "scopes": engine.list_scopes(session.handle, prefix),
+    }
 
 
 @mcp.tool()
-def get_snapshot(signals: list[str], time: str | int) -> dict:
-    """Get values of multiple signals at a single time point. Efficient multi-signal lookup.
+def get_signal_info(session_id: str, signal: str) -> dict:
+    """Get metadata for a single signal in a waveform session."""
+    session = _get_session(session_id)
+    return {
+        "session_id": session_id,
+        "signal_info": engine.get_signal_info(session.handle, signal),
+    }
+
+
+@mcp.tool()
+def get_snapshot(session_id: str, signals: list[str], time: str | int) -> dict:
+    """Get values of multiple signals at a single time point.
 
     Args:
-        signals: List of signal paths (e.g., ["tb.dut.clk", "tb.dut.reset"])
+        session_id: Waveform session returned by open_waveform.
+        signals: List of signal paths.
         time: Time point (e.g., "1284ns", "1.284us", 1284000)
     """
-    t = _parse_t(time)
-    return engine.get_snapshot(_get_handle(), signals, t)
+    session = _get_session(session_id)
+    t = _parse_t(session, time)
+    return {
+        "session_id": session_id,
+        "time_ps": t,
+        "values": engine.get_snapshot(session.handle, signals, t),
+    }
 
 
 @mcp.tool()
 def get_signal_window(
+    session_id: str,
     signals: list[str],
     t0: str | int,
     t1: str | int,
@@ -156,23 +224,18 @@ def get_signal_window(
     """Get transitions for multiple signals in a time window.
 
     Auto-summarises if a signal has more than max_edges_per_signal transitions.
-
-    Args:
-        signals: List of signal paths
-        t0: Start time
-        t1: End time
-        max_edges_per_signal: Max edges before auto-summarise (default 200)
     """
-    handle = _get_handle()
-    t0_ps = _parse_t(t0)
-    t1_ps = _parse_t(t1)
+    session = _get_session(session_id)
+    t0_ps = _parse_t(session, t0)
+    t1_ps = _parse_t(session, t1)
 
     result = {}
     for sig in signals:
-        transitions = engine.get_transitions(handle, sig, t0_ps, t1_ps, max_edges_per_signal)
+        transitions = engine.get_transitions(
+            session.handle, sig, t0_ps, t1_ps, max_edges_per_signal
+        )
         if transitions["truncated"]:
-            # Auto-summarise
-            summary = engine.summarize(handle, sig, t0_ps, t1_ps)
+            summary = engine.summarize(session.handle, sig, t0_ps, t1_ps)
             result[sig] = {
                 "mode": "summary",
                 "total_transitions": transitions["total_transitions"],
@@ -183,66 +246,71 @@ def get_signal_window(
                 "mode": "transitions",
                 **transitions,
             }
-    return result
+
+    return {
+        "session_id": session_id,
+        "t0_ps": t0_ps,
+        "t1_ps": t1_ps,
+        "signals": result,
+    }
 
 
 @mcp.tool()
-def find_first_match(predicate_json: str, after: str | int = 0) -> int | None:
-    """Find first timestamp matching a predicate expression.
-
-    Args:
-        predicate_json: JSON-encoded predicate AST (see predicate DSL docs)
-        after: Search after this time (default: 0)
-
-    Example predicate_json:
-        {"tag": "and", "left": {"tag": "signal", "path": "tb.dut.valid"},
-         "right": {"tag": "signal", "path": "tb.dut.ready"}}
-    """
+def find_first_match(session_id: str, predicate_json: str, after: str | int = 0) -> dict:
+    """Find first timestamp matching a predicate expression."""
+    session = _get_session(session_id)
     data = json.loads(predicate_json)
     expr = _expr_from_json(data)
-    after_ps = _parse_t(after)
-    return engine.find_first(_get_handle(), expr, after_ps)
+    after_ps = _parse_t(session, after)
+    return {
+        "session_id": session_id,
+        "after_ps": after_ps,
+        "match_time_ps": engine.find_first(session.handle, expr, after_ps),
+    }
 
 
 @mcp.tool()
-def find_all_matches(predicate_json: str, t0: str | int, t1: str | int) -> list[int]:
-    """Find all timestamps matching a predicate expression in a window.
-
-    Args:
-        predicate_json: JSON-encoded predicate AST
-        t0: Start time
-        t1: End time
-    """
+def find_all_matches(session_id: str, predicate_json: str, t0: str | int, t1: str | int) -> dict:
+    """Find all timestamps matching a predicate expression in a window."""
+    session = _get_session(session_id)
     data = json.loads(predicate_json)
     expr = _expr_from_json(data)
-    t0_ps = _parse_t(t0)
-    t1_ps = _parse_t(t1)
-    return engine.find_all(_get_handle(), expr, t0_ps, t1_ps)
+    t0_ps = _parse_t(session, t0)
+    t1_ps = _parse_t(session, t1)
+    return {
+        "session_id": session_id,
+        "t0_ps": t0_ps,
+        "t1_ps": t1_ps,
+        "matches": engine.find_all(session.handle, expr, t0_ps, t1_ps),
+    }
 
 
 @mcp.tool()
 def find_anomalies(
+    session_id: str,
     signal: str,
     t0: str | int,
     t1: str | int,
     expected_period_ps: int | None = None,
-) -> list[dict]:
-    """Detect anomalies in a signal: glitches, unexpected gaps, stuck signals.
-
-    Args:
-        signal: Signal path
-        t0: Start time
-        t1: End time
-        expected_period_ps: Expected period (auto-inferred if not provided)
-    """
-    t0_ps = _parse_t(t0)
-    t1_ps = _parse_t(t1)
-    return engine.find_anomalies(_get_handle(), signal, t0_ps, t1_ps, expected_period_ps)
+) -> dict:
+    """Detect anomalies in a signal: glitches, unexpected gaps, stuck signals."""
+    session = _get_session(session_id)
+    t0_ps = _parse_t(session, t0)
+    t1_ps = _parse_t(session, t1)
+    return {
+        "session_id": session_id,
+        "signal": signal,
+        "t0_ps": t0_ps,
+        "t1_ps": t1_ps,
+        "anomalies": engine.find_anomalies(
+            session.handle, signal, t0_ps, t1_ps, expected_period_ps
+        ),
+    }
 
 
 def start_server(fst_path: str | None = None):
-    """Start the MCP server, optionally pre-loading a waveform file."""
+    """Start the MCP server, optionally pre-loading a waveform file as `default`."""
     if fst_path:
-        _load_waveform(fst_path)
+        _create_session(fst_path, session_id=DEFAULT_SESSION_ID)
 
     mcp.run(transport="stdio")
