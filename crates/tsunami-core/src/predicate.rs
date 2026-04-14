@@ -1,6 +1,6 @@
 use serde::Deserialize;
 use std::collections::{BTreeSet, HashMap};
-use wellen::{GetItem, SignalRef, Time, Var};
+use wellen::{SignalRef, Time, Var};
 
 use crate::query::{
     get_signal_value_at_idx, resolve_signal, signal_value_to_u64, WaveformHandle,
@@ -206,7 +206,7 @@ pub fn scan_expr(
 
     for path in &signal_paths {
         let var_ref = resolve_signal(hier, path)?;
-        let var: &Var = hier.get(var_ref);
+        let var: &Var = &hier[var_ref];
         let sr = var.signal_ref();
         sig_refs_map.insert(path.clone(), sr);
         if !sig_refs.contains(&sr) {

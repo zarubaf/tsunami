@@ -12,5 +12,5 @@ name = "_engine"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.23", features = ["extension-module", "abi3-py312"] }
+pyo3 = { version = "0.28", features = ["extension-module", "abi3-py312"] }
 tsunami-core = { path = "crates/tsunami-core" }

@@ -46,7 +46,7 @@ fn signal_info_to_dict<'py>(
 }
 
 #[pyfunction]
-pub fn waveform_info(py: Python<'_>, handle: &PyWaveformHandle) -> PyResult<PyObject> {
+pub fn waveform_info(py: Python<'_>, handle: &PyWaveformHandle) -> PyResult<Py<PyAny>> {
     let info = query::waveform_info(&handle.inner).map_err(err)?;
     let dict = PyDict::new(py);
     dict.set_item("timescale_factor", info.timescale_factor)?;
@@ -59,7 +59,7 @@ pub fn waveform_info(py: Python<'_>, handle: &PyWaveformHandle) -> PyResult<PyOb
 }
 
 #[pyfunction]
-pub fn get_waveform_length(py: Python<'_>, handle: &PyWaveformHandle) -> PyResult<PyObject> {
+pub fn get_waveform_length(py: Python<'_>, handle: &PyWaveformHandle) -> PyResult<Py<PyAny>> {
     let len = query::get_waveform_length(&handle.inner).map_err(err)?;
     let dict = PyDict::new(py);
     dict.set_item("start_time", len.start_time)?;
@@ -74,7 +74,7 @@ pub fn get_waveform_length(py: Python<'_>, handle: &PyWaveformHandle) -> PyResul
 
 #[pyfunction]
 #[pyo3(signature = (handle, pattern="*"))]
-pub fn list_signals(py: Python<'_>, handle: &PyWaveformHandle, pattern: &str) -> PyResult<PyObject> {
+pub fn list_signals(py: Python<'_>, handle: &PyWaveformHandle, pattern: &str) -> PyResult<Py<PyAny>> {
     let results = query::list_signals(&handle.inner, pattern).map_err(err)?;
     let py_list: Vec<Bound<'_, PyDict>> = results
         .iter()
@@ -84,14 +84,14 @@ pub fn list_signals(py: Python<'_>, handle: &PyWaveformHandle, pattern: &str) ->
 }
 
 #[pyfunction]
-pub fn get_signal_info(py: Python<'_>, handle: &PyWaveformHandle, signal: &str) -> PyResult<PyObject> {
+pub fn get_signal_info(py: Python<'_>, handle: &PyWaveformHandle, signal: &str) -> PyResult<Py<PyAny>> {
     let info = query::get_signal_info(&handle.inner, signal).map_err(err)?;
     Ok(signal_info_to_dict(py, &info)?.into())
 }
 
 #[pyfunction]
 #[pyo3(signature = (handle, prefix=""))]
-pub fn list_scopes(py: Python<'_>, handle: &PyWaveformHandle, prefix: &str) -> PyResult<PyObject> {
+pub fn list_scopes(py: Python<'_>, handle: &PyWaveformHandle, prefix: &str) -> PyResult<Py<PyAny>> {
     let results = query::list_scopes(&handle.inner, prefix).map_err(err)?;
     Ok(PyList::new(py, &results)?.into())
 }
@@ -102,7 +102,7 @@ pub fn get_value(
     handle: &PyWaveformHandle,
     signal: &str,
     time_ps: u64,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let info = query::get_value(&handle.inner, signal, time_ps).map_err(err)?;
     Ok(value_info_to_dict(py, &info)?.into())
 }
@@ -113,7 +113,7 @@ pub fn get_snapshot(
     handle: &PyWaveformHandle,
     signals: Vec<String>,
     time_ps: u64,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let result = query::get_snapshot(&handle.inner, &signals, time_ps).map_err(err)?;
     let dict = PyDict::new(py);
     for (path, val) in &result {
@@ -131,7 +131,7 @@ pub fn get_transitions(
     t0_ps: u64,
     t1_ps: u64,
     max_edges: usize,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let tr = query::get_transitions(&handle.inner, signal, t0_ps, t1_ps, max_edges).map_err(err)?;
     let transitions: Vec<Bound<'_, PyDict>> = tr
         .transitions
@@ -161,7 +161,7 @@ pub fn find_next_edge(
     signal: &str,
     direction: &str,
     after_ps: u64,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let matches = query::find_edges(
         &handle.inner,
         signal,
@@ -189,7 +189,7 @@ pub fn find_edges(
     start_ps: u64,
     end_ps: Option<u64>,
     limit: usize,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let matches =
         query::find_edges(&handle.inner, signal, direction, start_ps, end_ps, limit).map_err(err)?;
     Ok(PyList::new(py, matches)?.into())
@@ -206,7 +206,7 @@ pub fn find_value(
     start_ps: u64,
     end_ps: Option<u64>,
     limit: usize,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let matches = query::find_value(&handle.inner, signal, condition, value, start_ps, end_ps, limit)
         .map_err(err)?;
     let py_matches: Vec<Bound<'_, PyDict>> = matches

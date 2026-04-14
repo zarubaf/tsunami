@@ -47,7 +47,7 @@ pub fn summarize(
     signal: &str,
     t0_ps: u64,
     t1_ps: u64,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let data = core_summarise::summarize(&handle.inner, signal, t0_ps, t1_ps).map_err(err)?;
     Ok(summary_to_pydict(py, &data)?.into())
 }
@@ -59,7 +59,7 @@ pub fn summarize_window(
     signals: Vec<String>,
     t0_ps: u64,
     t1_ps: u64,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let data =
         core_summarise::summarize_window(&handle.inner, &signals, t0_ps, t1_ps).map_err(err)?;
     let result = PyDict::new(py);
@@ -78,7 +78,7 @@ pub fn find_anomalies(
     t0_ps: u64,
     t1_ps: u64,
     expected_period_ps: Option<u64>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let anomalies = core_summarise::find_anomalies(
         &handle.inner,
         signal,

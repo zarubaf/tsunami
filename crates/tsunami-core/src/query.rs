@@ -2,7 +2,7 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use wellen::simple::read;
-use wellen::{GetItem, Hierarchy, Signal, SignalRef, SignalValue, Time, Var, VarRef};
+use wellen::{Hierarchy, Signal, SignalRef, SignalValue, Time, Var, VarRef};
 
 /// Opaque handle to an opened waveform file.
 #[derive(Clone)]
@@ -86,6 +86,7 @@ pub fn signal_value_to_hex(val: &SignalValue) -> String {
         },
         SignalValue::Real(r) => format!("{r}"),
         SignalValue::String(s) => s.to_string(),
+        _ => "?".to_string(),
     }
 }
 
@@ -118,7 +119,7 @@ pub fn signal_value_to_u64(val: &SignalValue) -> Option<u64> {
                 .and_then(|s| u64::from_str_radix(&s, 2).ok())
         }
         SignalValue::Real(r) => Some(*r as u64),
-        _ => None,
+        SignalValue::String(_) | _ => None,
     }
 }
 
@@ -135,7 +136,7 @@ pub fn resolve_signal(hier: &Hierarchy, path: &str) -> Result<VarRef, String> {
 
     hier.lookup_var(
         &scope_parts.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
-        &var_name.to_string(),
+        var_name.to_string(),
     )
     .ok_or_else(|| format!("Signal not found: {path}"))
 }
@@ -351,7 +352,7 @@ pub fn get_signal_info(handle: &WaveformHandle, signal: &str) -> Result<SignalIn
     handle.with_wave(|wave| {
         let hier = wave.hierarchy();
         let var_ref = resolve_signal(hier, signal)?;
-        let var: &Var = hier.get(var_ref);
+        let var: &Var = &hier[var_ref];
         Ok(make_signal_info(hier, var))
     })
 }
@@ -374,7 +375,7 @@ pub fn get_value(handle: &WaveformHandle, signal: &str, time_ps: u64) -> Result<
     handle.with_wave(|wave| {
         let hier = wave.hierarchy();
         let var_ref = resolve_signal(hier, signal)?;
-        let var: &Var = hier.get(var_ref);
+        let var: &Var = &hier[var_ref];
         let sig_ref = var.signal_ref();
 
         wave.load_signals(&[sig_ref]);
@@ -408,7 +409,7 @@ pub fn get_snapshot(
 
         for sig_path in signals {
             let var_ref = resolve_signal(hier, sig_path)?;
-            let var: &Var = hier.get(var_ref);
+            let var: &Var = &hier[var_ref];
             var_refs.push((sig_path.clone(), var_ref, var.signal_ref()));
         }
 
@@ -445,7 +446,7 @@ pub fn get_transitions(
     handle.with_wave(|wave| {
         let hier = wave.hierarchy();
         let var_ref = resolve_signal(hier, signal)?;
-        let var: &Var = hier.get(var_ref);
+        let var: &Var = &hier[var_ref];
         let sig_ref = var.signal_ref();
 
         wave.load_signals(&[sig_ref]);
@@ -508,7 +509,7 @@ pub fn find_edges(
         }
         let hier = wave.hierarchy();
         let var_ref = resolve_signal(hier, signal)?;
-        let var: &Var = hier.get(var_ref);
+        let var: &Var = &hier[var_ref];
         let sig_ref = var.signal_ref();
 
         wave.load_signals(&[sig_ref]);
@@ -567,7 +568,7 @@ pub fn find_value(
         let expected = parse_compare_value(value)?;
         let hier = wave.hierarchy();
         let var_ref = resolve_signal(hier, signal)?;
-        let var: &Var = hier.get(var_ref);
+        let var: &Var = &hier[var_ref];
         let sig_ref = var.signal_ref();
 
         wave.load_signals(&[sig_ref]);

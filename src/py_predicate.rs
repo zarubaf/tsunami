@@ -127,7 +127,7 @@ pub fn find_first(
     handle: &PyWaveformHandle,
     expr: &Bound<'_, PyAny>,
     after_ps: u64,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let expr = py_to_expr(expr)?;
     let result = predicate::find_first(&handle.inner, &expr, after_ps).map_err(err)?;
     match result {
@@ -143,7 +143,7 @@ pub fn find_all(
     expr: &Bound<'_, PyAny>,
     t0_ps: u64,
     t1_ps: u64,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let expr = py_to_expr(expr)?;
     let times = predicate::find_all(&handle.inner, &expr, t0_ps, t1_ps).map_err(err)?;
     Ok(PyList::new(py, &times)?.into())
@@ -156,7 +156,7 @@ pub fn scan(
     expr: &Bound<'_, PyAny>,
     t0_ps: u64,
     t1_ps: u64,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let expr = py_to_expr(expr)?;
     let results = predicate::scan(&handle.inner, &expr, t0_ps, t1_ps).map_err(err)?;
     let py_results: Vec<Bound<'_, PyDict>> = results

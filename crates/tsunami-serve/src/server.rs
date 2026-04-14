@@ -3,7 +3,7 @@ use std::sync::{atomic::AtomicUsize, atomic::Ordering, Mutex};
 
 use rmcp::{
     ServerHandler,
-    handler::server::{router::tool::ToolRouter, wrapper::Parameters},
+    handler::server::wrapper::Parameters,
     model::{ServerCapabilities, ServerInfo},
     tool, tool_handler, tool_router,
 };
@@ -25,7 +25,6 @@ struct WaveformSession {
 pub struct TsunamiServer {
     sessions: Mutex<HashMap<String, WaveformSession>>,
     next_id: AtomicUsize,
-    tool_router: ToolRouter<Self>,
 }
 
 impl TsunamiServer {
@@ -33,7 +32,6 @@ impl TsunamiServer {
         Self {
             sessions: Mutex::new(HashMap::new()),
             next_id: AtomicUsize::new(1),
-            tool_router: Self::tool_router(),
         }
     }
 
@@ -769,10 +767,7 @@ impl TsunamiServer {
 #[tool_handler]
 impl ServerHandler for TsunamiServer {
     fn get_info(&self) -> ServerInfo {
-        ServerInfo {
-            instructions: Some("Tsunami waveform debugging MCP server. Open a waveform file first with open_waveform, then use the returned session_id for all other tools.".to_string()),
-            capabilities: ServerCapabilities::builder().enable_tools().build(),
-            ..Default::default()
-        }
+        ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
+            .with_instructions("Tsunami waveform debugging MCP server. Open a waveform file first with open_waveform, then use the returned session_id for all other tools.")
     }
 }

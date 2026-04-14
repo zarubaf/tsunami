@@ -1,6 +1,6 @@
 use serde::Serialize;
 use std::collections::HashMap;
-use wellen::{GetItem, Time, Var};
+use wellen::{Time, Var};
 
 use crate::query::{
     get_signal_value_at_idx, resolve_signal, signal_value_to_hex, signal_value_to_u64,
@@ -183,7 +183,7 @@ pub fn summarize_signal(
 ) -> Result<SummaryData, String> {
     let hier = wave.hierarchy();
     let var_ref = resolve_signal(hier, signal_path)?;
-    let var: &Var = hier.get(var_ref);
+    let var: &Var = &hier[var_ref];
     let sig_ref = var.signal_ref();
     let is_1bit = var.length().unwrap_or(1) == 1;
 
