@@ -1,3 +1,7 @@
+[workspace]
+members = ["crates/tsunami-core", "crates/tsunami-serve", "."]
+resolver = "2"
+
 [package]
 name = "tsunami"
 version = "0.1.0"
@@ -9,5 +13,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.23", features = ["extension-module", "abi3-py312"] }
-wellen = "0.13"
-glob = "0.3"
+tsunami-core = { path = "crates/tsunami-core" }
