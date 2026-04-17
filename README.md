@@ -1,14 +1,23 @@
 # Tsunami
 
-AI-assisted hardware waveform debugging tool. Tsunami provides a Rust-powered query engine (using the [wellen](https://github.com/ekiwi/wellen) crate) exposed to Python via PyO3, with three entry points: a Python library, an MCP server for Claude Code, and a CLI.
+AI-assisted hardware waveform debugging tool. Tsunami provides a Rust-powered query engine (using the [wellen](https://github.com/ekiwi/wellen) crate) with four entry points: a standalone Rust MCP server, a Python library, a Python MCP server, and a CLI.
 
 ## Requirements
 
-- Python 3.12+
 - Rust toolchain (rustc, cargo)
-- [uv](https://docs.astral.sh/uv/) for project management
+- Python 3.12+ and [uv](https://docs.astral.sh/uv/) (for the Python library/CLI)
 
 ## Setup
+
+### Standalone Rust MCP server (no Python needed)
+
+```bash
+cargo build --release -p tsunami-serve
+```
+
+The binary is at `target/release/tsunami-serve`.
+
+### Python library & CLI
 
 ```bash
 uv sync                        # Install Python dependencies
@@ -101,13 +110,46 @@ first = tsunami.find_first(handle, rising, after_ps=0)
 
 ### MCP Server (Claude Code)
 
-Start the server:
+Tsunami ships two MCP servers: a standalone Rust binary (`tsunami-serve`) and a Python-based server (`tsunami serve`). Both expose the same session-based tool interface over stdio.
+
+#### Standalone Rust server (recommended)
+
+No Python runtime needed. Build once and point Claude Code at the binary:
+
+```bash
+cargo build --release -p tsunami-serve
+```
+
+Start with a pre-loaded waveform:
+
+```bash
+./target/release/tsunami-serve sim.fst
+```
+
+Or start without a file and use `open_waveform` to load dynamically:
+
+```bash
+./target/release/tsunami-serve
+```
+
+Claude Code MCP config (`.mcp.json` or `~/.claude/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "tsunami": {
+      "command": "/path/to/tsunami-serve",
+      "args": ["sim.fst"]
+    }
+  }
+}
+```
+
+#### Python server
 
 ```bash
 tsunami serve sim.fst
 ```
-
-Add to your Claude Code MCP config:
 
 ```json
 {
@@ -120,30 +162,37 @@ Add to your Claude Code MCP config:
 }
 ```
 
-Available tools: `open_waveform`, `waveform_info`, `search_signals`, `browse_scopes`, `get_signal_info`, `get_snapshot`, `get_signal_window`, `find_first_match`, `find_all_matches`, `find_anomalies`.
+#### Available tools
+
+Both servers expose: `open_waveform`, `waveform_info`, `get_waveform_length`, `search_signals`, `browse_scopes`, `get_signal_info`, `get_snapshot`, `get_signal_window`, `find_edge`, `find_value`, `find_pattern`, `find_first_match`, `find_all_matches`, `find_anomalies`.
 
 The MCP server is session-based. `open_waveform` returns a `session_id`, and all
-other waveform tools require that session ID. If you start the server with
-`tsunami serve sim.fst`, the preloaded waveform is available as session
-`default`.
+other waveform tools require that session ID. If you start the server with a
+file argument, the preloaded waveform is available as session `default`.
 
 ## Architecture
 
 ```
-Claude Code
+Claude Code / LLM
     |  MCP protocol (JSON, stdio)
-Python MCP Server / CLI
-    |  PyO3 direct function calls
-Rust query engine (_engine.so)
-    |  wellen crate
-FST / VCD waveform files
+    |
+    ├── tsunami-serve (pure Rust binary, rmcp)
+    |       |
+    └── Python MCP Server / CLI (FastMCP)
+            |  PyO3 calls
+            |
+      tsunami-core (pure Rust library)
+            |  wellen crate
+      FST / VCD waveform files
 ```
 
-| Layer        | Technology  | Responsibility                                              |
-|--------------|-------------|-------------------------------------------------------------|
-| MCP Server   | Python, FastMCP | Tool definitions, time parsing, auto-summarisation      |
-| Query Engine | Rust, PyO3  | Signal access, predicate evaluation, summarisation          |
-| Waveform I/O | wellen     | FST/VCD parsing, memory-mapped lazy loading                 |
+| Layer | Technology | Responsibility |
+|---|---|---|
+| Rust MCP Server | `tsunami-serve`, rmcp | Standalone MCP server, no Python needed |
+| Python MCP Server | FastMCP | Tool definitions, Python-side time parsing |
+| Core Engine | `tsunami-core` | Signal queries, predicate eval, summarisation, time parsing |
+| PyO3 Bindings | `tsunami` cdylib | Thin wrappers exposing `tsunami-core` to Python |
+| Waveform I/O | wellen | FST/VCD parsing, memory-mapped lazy loading |
 
 ## Testing
 
@@ -155,19 +204,31 @@ uv run pytest tests/ -v
 
 ```
 tsunami/
+├── Cargo.toml                      # Workspace root
 ├── pyproject.toml                  # maturin build backend, uv managed
-├── Cargo.toml                      # wellen + pyo3 deps
-├── src/                            # Rust crate (PyO3 cdylib)
-│   ├── lib.rs                      # PyO3 module entry
-│   ├── query.rs                    # Core signal queries
-│   ├── predicate.rs                # Expr enum, evaluation engine
-│   └── summarise.rs                # Anomaly detection, period inference
+├── crates/
+│   ├── tsunami-core/               # Pure Rust library (no PyO3)
+│   │   └── src/
+│   │       ├── lib.rs
+│   │       ├── query.rs            # Signal queries, value helpers
+│   │       ├── predicate.rs        # Expr AST, evaluation engine
+│   │       ├── summarise.rs        # Anomaly detection, period inference
+│   │       └── time_parse.rs       # Human-readable time parser
+│   └── tsunami-serve/              # Standalone Rust MCP server binary
+│       └── src/
+│           ├── main.rs             # CLI entry, stdio transport
+│           └── server.rs           # MCP tool handlers (rmcp)
+├── src/                            # PyO3 cdylib (thin wrappers)
+│   ├── lib.rs                      # Module entry
+│   ├── py_query.rs                 # Query wrappers
+│   ├── py_predicate.rs             # Predicate wrappers
+│   └── py_summarise.rs             # Summary wrappers
 ├── python/tsunami/
 │   ├── __init__.py                 # Public API re-exports
 │   ├── _engine.pyi                 # Type stubs for Rust module
 │   ├── predicate.py                # Python DSL (Expr dataclasses + operators)
 │   ├── time_parse.py               # ns/us/cyc -> ps normalisation
-│   ├── server.py                   # MCP server (FastMCP)
+│   ├── server.py                   # Python MCP server (FastMCP)
 │   └── cli.py                      # CLI entry point
 └── tests/
     ├── test_engine.py              # Rust engine integration tests
