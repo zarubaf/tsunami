@@ -11,6 +11,9 @@ tsunami serve simulation.fst
 
 The server communicates over stdio using the MCP protocol.
 
+If you start the server with a waveform path, that preloaded waveform is
+available under the reserved session ID `default`.
+
 ## Claude Code configuration
 
 Add to your `.mcp.json` (project-level) or `~/.claude/mcp.json` (global):
@@ -28,11 +31,33 @@ Add to your `.mcp.json` (project-level) or `~/.claude/mcp.json` (global):
 
 After restarting Claude Code, the tsunami tools will be available.
 
+## Sessions
+
+Tsunami's MCP tools are session-based.
+
+- Call `open_waveform(path)` to open an additional waveform and get a
+  `session_id`.
+- Pass `session_id` to all stateful waveform tools.
+- If the server was started with `tsunami serve path/to/file.fst`, use
+  `session_id="default"` for that preloaded waveform.
+
 ## Available tools
+
+### `open_waveform`
+
+Open a waveform file and return a `session_id` plus waveform metadata.
+
+**Parameters:**
+
+- `path` (str): Absolute path to the waveform file.
 
 ### `waveform_info`
 
 Returns waveform metadata: timescale, duration, signal count, format.
+
+**Parameters:**
+
+- `session_id` (str): Waveform session ID.
 
 ### `search_signals`
 
@@ -41,7 +66,10 @@ will call.
 
 **Parameters:**
 
+- `session_id` (str): Waveform session ID.
 - `pattern` (str, default `"*"`): Glob pattern for signal names.
+- `limit` (int, default 200, hard-capped at 500): Max signals to return.
+- `offset` (int, default 0): Number of matches to skip, for paging through results.
 
 ### `browse_scopes`
 
@@ -49,7 +77,19 @@ Browse the design hierarchy.
 
 **Parameters:**
 
+- `session_id` (str): Waveform session ID.
 - `prefix` (str, default `""`): Only scopes starting with this prefix.
+- `limit` (int, default 200, hard-capped at 500): Max scopes to return.
+- `offset` (int, default 0): Number of matches to skip, for paging through results.
+
+### `get_signal_info`
+
+Get metadata for a single signal.
+
+**Parameters:**
+
+- `session_id` (str): Waveform session ID.
+- `signal` (str): Full hierarchical signal path.
 
 ### `get_snapshot`
 
@@ -57,6 +97,7 @@ Get values of multiple signals at a single time point.
 
 **Parameters:**
 
+- `session_id` (str): Waveform session ID.
 - `signals` (list[str]): Signal paths.
 - `time` (str | int): Time point (e.g. `"1284ns"`).
 
@@ -68,6 +109,7 @@ flooding the context window.
 
 **Parameters:**
 
+- `session_id` (str): Waveform session ID.
 - `signals` (list[str]): Signal paths.
 - `t0`, `t1` (str | int): Time range.
 - `max_edges_per_signal` (int, default 200): Threshold for auto-summarisation.
@@ -78,6 +120,7 @@ Find the first timestamp matching a predicate expression.
 
 **Parameters:**
 
+- `session_id` (str): Waveform session ID.
 - `predicate_json` (str): JSON-encoded predicate AST.
 - `after` (str | int, default 0): Search after this time.
 
@@ -97,8 +140,11 @@ Find all timestamps matching a predicate in a window.
 
 **Parameters:**
 
+- `session_id` (str): Waveform session ID.
 - `predicate_json` (str): JSON-encoded predicate AST.
 - `t0`, `t1` (str | int): Time range.
+- `limit` (int, default 200, hard-capped at 500): Max timestamps to return.
+- `offset` (int, default 0): Number of matches to skip, for paging through results.
 
 ### `find_anomalies`
 
@@ -106,6 +152,7 @@ Detect glitches, gaps, and stuck signals.
 
 **Parameters:**
 
+- `session_id` (str): Waveform session ID.
 - `signal` (str): Signal path.
 - `t0`, `t1` (str | int): Time range.
 - `expected_period_ps` (int | None): Expected period (auto-inferred if omitted).
