@@ -37,6 +37,29 @@ class WaveformSession:
     timescale_ps: int
     path: str
 
+# Hard ceiling on how many items any single tool call may return, regardless of
+# the caller-requested `limit`. Protects the stdio transport: a single
+# unanchored glob (e.g. "*") can match hundreds of thousands of signals in a
+# large design, and serializing all of them in one response can exceed the
+# MCP client's message-framing limits and force a disconnect.
+MAX_RESULT_LIMIT = 500
+DEFAULT_RESULT_LIMIT = 200
+
+
+def _paginate(items: list, limit: int, offset: int) -> tuple[list, int]:
+    """Slice `items` to a bounded page and report the total match count.
+
+    Raises ValueError for invalid limit/offset so callers get a clear error
+    instead of a silently-wrong (or silently-huge) response.
+    """
+    if limit < 1:
+        raise ValueError("limit must be at least 1")
+    if offset < 0:
+        raise ValueError("offset must be at least 0")
+    limit = min(limit, MAX_RESULT_LIMIT)
+    total = len(items)
+    return items[offset:offset + limit], total
+
 
 _sessions: dict[str, WaveformSession] = {}
 _next_session_id = 1
@@ -163,25 +186,64 @@ def waveform_info(session_id: str) -> dict:
 
 
 @mcp.tool()
-def search_signals(session_id: str, pattern: str = "*") -> dict:
-    """Search for signals matching a glob pattern in a waveform session.
+def search_signals(
+    session_id: str, pattern: str = "*", limit: int = DEFAULT_RESULT_LIMIT, offset: int = 0
+) -> dict:
+    """Search for signals matching a glob pattern in a waveform session. Always start here for signal discovery.
 
     Examples: "*clk*", "tb.dut.*valid*", "*tl_a*"
+
+    Results are paginated: the response includes `total_count` so you can tell
+    whether it was truncated, and `offset` can be used to page through the rest.
+    Narrow the pattern instead of raising `limit` when `total_count` is very
+    large — the underlying design may have hundreds of thousands of signals.
+
+    Args:
+        session_id: Waveform session returned by open_waveform.
+        pattern: Glob pattern (default: "*")
+        limit: Max signals to return (default 200, hard-capped at 500)
+        offset: Number of matches to skip, for paging through results (default 0)
     """
     session = _get_session(session_id)
+    matches = engine.list_signals(session.handle, pattern)
+    page, total = _paginate(matches, limit, offset)
     return {
         "session_id": session_id,
-        "signals": engine.list_signals(session.handle, pattern),
+        "pattern": pattern,
+        "limit": limit,
+        "offset": offset,
+        "total_count": total,
+        "signals": page,
     }
 
 
 @mcp.tool()
-def browse_scopes(session_id: str, prefix: str = "") -> dict:
-    """Browse the signal hierarchy for an open waveform session."""
+def browse_scopes(
+    session_id: str, prefix: str = "", limit: int = DEFAULT_RESULT_LIMIT, offset: int = 0
+) -> dict:
+    """Browse the signal hierarchy for an open waveform session. Returns scope names under the given prefix.
+
+    Results are paginated: the response includes `total_count` so you can tell
+    whether it was truncated, and `offset` can be used to page through the rest.
+    Narrow the prefix instead of raising `limit` when `total_count` is very
+    large — the underlying design may have hundreds of thousands of scopes.
+
+    Args:
+        session_id: Waveform session returned by open_waveform.
+        prefix: Scope prefix (default: "", i.e. top-level scopes)
+        limit: Max scopes to return (default 200, hard-capped at 500)
+        offset: Number of matches to skip, for paging through results (default 0)
+    """
     session = _get_session(session_id)
+    matches = engine.list_scopes(session.handle, prefix)
+    page, total = _paginate(matches, limit, offset)
     return {
         "session_id": session_id,
-        "scopes": engine.list_scopes(session.handle, prefix),
+        "prefix": prefix,
+        "limit": limit,
+        "offset": offset,
+        "total_count": total,
+        "scopes": page,
     }
 
 
@@ -270,18 +332,44 @@ def find_first_match(session_id: str, predicate_json: str, after: str | int = 0)
 
 
 @mcp.tool()
-def find_all_matches(session_id: str, predicate_json: str, t0: str | int, t1: str | int) -> dict:
-    """Find all timestamps matching a predicate expression in a window."""
+def find_all_matches(
+    session_id: str,
+    predicate_json: str,
+    t0: str | int,
+    t1: str | int,
+    limit: int = DEFAULT_RESULT_LIMIT,
+    offset: int = 0,
+) -> dict:
+    """Find all timestamps matching a predicate expression in a window.
+
+    Results are paginated: the response includes `total_count` so you can tell
+    whether it was truncated. Narrow the window instead of raising `limit`
+    when `total_count` is very large — a broad predicate over a long window
+    can match on a large fraction of all time points.
+
+    Args:
+        session_id: Waveform session returned by open_waveform.
+        predicate_json: JSON-encoded predicate AST
+        t0: Start time
+        t1: End time
+        limit: Max timestamps to return (default 200, hard-capped at 500)
+        offset: Number of matches to skip, for paging through results (default 0)
+    """
     session = _get_session(session_id)
     data = json.loads(predicate_json)
     expr = _expr_from_json(data)
     t0_ps = _parse_t(session, t0)
     t1_ps = _parse_t(session, t1)
+    matches = engine.find_all(session.handle, expr, t0_ps, t1_ps)
+    page, total = _paginate(matches, limit, offset)
     return {
         "session_id": session_id,
         "t0_ps": t0_ps,
         "t1_ps": t1_ps,
-        "matches": engine.find_all(session.handle, expr, t0_ps, t1_ps),
+        "limit": limit,
+        "offset": offset,
+        "total_count": total,
+        "matches": page,
     }
 
 

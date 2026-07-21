@@ -68,6 +68,8 @@ will call.
 
 - `session_id` (str): Waveform session ID.
 - `pattern` (str, default `"*"`): Glob pattern for signal names.
+- `limit` (int, default 200, hard-capped at 500): Max signals to return.
+- `offset` (int, default 0): Number of matches to skip, for paging through results.
 
 ### `browse_scopes`
 
@@ -77,6 +79,8 @@ Browse the design hierarchy.
 
 - `session_id` (str): Waveform session ID.
 - `prefix` (str, default `""`): Only scopes starting with this prefix.
+- `limit` (int, default 200, hard-capped at 500): Max scopes to return.
+- `offset` (int, default 0): Number of matches to skip, for paging through results.
 
 ### `get_signal_info`
 
@@ -139,6 +143,8 @@ Find all timestamps matching a predicate in a window.
 - `session_id` (str): Waveform session ID.
 - `predicate_json` (str): JSON-encoded predicate AST.
 - `t0`, `t1` (str | int): Time range.
+- `limit` (int, default 200, hard-capped at 500): Max timestamps to return.
+- `offset` (int, default 0): Number of matches to skip, for paging through results.
 
 ### `find_anomalies`
 
