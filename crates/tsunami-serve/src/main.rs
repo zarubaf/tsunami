@@ -7,7 +7,7 @@ mod server;
 use server::TsunamiServer;
 
 #[derive(Parser)]
-#[command(name = "tsunami-serve", about = "Tsunami MCP server for waveform debugging")]
+#[command(name = "tsunami-serve", version, about = "Tsunami MCP server for waveform debugging")]
 struct Cli {
     /// Waveform file (FST/VCD) to pre-load as the "default" session.
     file: Option<String>,
