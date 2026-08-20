@@ -48,6 +48,68 @@ jobs:
           name: sdist
           path: dist/
 
+  # Standalone tsunami-serve binaries, so the MCP server can be installed
+  # without a Rust toolchain or a Python environment. The wheels above are for
+  # the Python library; these are for anything that just wants the server --
+  # a pinned entry in someone's build, a container, a bare machine.
+  #
+  # Linux builds target musl and link statically: a binary with no glibc floor
+  # runs on a distroless image and on an immutable OS alike, which a
+  # dynamically linked one does not.
+  binaries:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            asset: darwin-arm64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            asset: darwin-x86_64
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            asset: linux-x86_64
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            asset: linux-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install musl toolchain
+        if: startsWith(matrix.os, 'ubuntu')
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - name: Add target
+        run: rustup target add ${{ matrix.target }}
+      - name: Build
+        run: cargo build --release --locked -p tsunami-serve --target ${{ matrix.target }}
+      - name: Name the asset after the platform it runs on
+        run: |
+          install -m 0755 \
+            "target/${{ matrix.target }}/release/tsunami-serve" \
+            "tsunami-serve-${{ github.ref_name }}-${{ matrix.asset }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.asset }}
+          path: tsunami-serve-${{ github.ref_name }}-*
+
+  # The GitHub release the binaries hang off. Separate from the PyPI publish
+  # below so that a PyPI outage does not cost the binaries, and vice versa.
+  release:
+    needs: [binaries]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: binary-*
+          merge-multiple: true
+          path: binaries/
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: binaries/tsunami-serve-*
+
   publish:
     needs: [build, sdist]
     runs-on: ubuntu-latest
