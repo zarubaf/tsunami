@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- **Python 3.12+**
+- **Python 3.11+**
 - **Rust toolchain** (rustc, cargo) — for building from source
 - **[uv](https://docs.astral.sh/uv/)** — for project management
 
