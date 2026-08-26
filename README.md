@@ -5,7 +5,7 @@ AI-assisted hardware waveform debugging tool. Tsunami provides a Rust-powered qu
 ## Requirements
 
 - Rust toolchain (rustc, cargo)
-- Python 3.12+ and [uv](https://docs.astral.sh/uv/) (for the Python library/CLI)
+- Python 3.11+ and [uv](https://docs.astral.sh/uv/) (for the Python library/CLI)
 
 ## Setup
 

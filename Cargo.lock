@@ -1126,7 +1126,7 @@ dependencies = [
 
 [[package]]
 name = "tsunami"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "pyo3",
  "tsunami-core",
@@ -1134,7 +1134,7 @@ dependencies = [
 
 [[package]]
 name = "tsunami-core"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "glob",
  "regex",
@@ -1145,7 +1145,7 @@ dependencies = [
 
 [[package]]
 name = "tsunami-serve"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "clap",
