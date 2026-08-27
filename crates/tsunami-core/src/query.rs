@@ -35,19 +35,29 @@ impl WaveformHandle {
 // Value helpers
 // ---------------------------------------------------------------------------
 
+/// Mask for the first (most significant) byte of a two-state value, which may
+/// only carry `width % 8` valid bits.
+fn two_state_first_byte_mask(width: u32) -> u8 {
+    match width % 8 {
+        0 => 0xff,
+        rem => (1u8 << rem) - 1,
+    }
+}
+
 /// Format a SignalValue as a hex string.
 pub fn signal_value_to_hex(val: &SignalValue) -> String {
     match val {
         SignalValue::Binary(bytes, width) => {
-            let hex_digits = (*width as usize + 3) / 4;
-            let mut result = String::with_capacity(hex_digits);
-            let num_bytes = (hex_digits + 1) / 2;
-            for i in (0..num_bytes).rev() {
-                if i < bytes.len() {
-                    result.push_str(&format!("{:02x}", bytes[i]));
+            // wellen stores two-state data MSB-first, with the *first* byte
+            // holding the (possibly partial) most significant bits.
+            let mut result = String::with_capacity(bytes.len() * 2);
+            for (i, &byte) in bytes.iter().enumerate() {
+                let byte = if i == 0 {
+                    byte & two_state_first_byte_mask(*width)
                 } else {
-                    result.push_str("00");
-                }
+                    byte
+                };
+                result.push_str(&format!("{byte:02x}"));
             }
             let trimmed = result.trim_start_matches('0');
             if trimmed.is_empty() {
@@ -103,10 +113,20 @@ fn has_x_or_z(val: &SignalValue) -> (bool, bool) {
 /// Convert a signal value to an unsigned integer (returns None for x/z values).
 pub fn signal_value_to_u64(val: &SignalValue) -> Option<u64> {
     match val {
-        SignalValue::Binary(bytes, _width) => {
+        SignalValue::Binary(bytes, width) => {
+            if *width > 64 {
+                // Does not fit; matches the FourValue/NineValue behaviour below.
+                return None;
+            }
+            // Bytes are MSB-first, the first one possibly partial.
             let mut result: u64 = 0;
             for (i, &byte) in bytes.iter().enumerate() {
-                result |= (byte as u64) << (i * 8);
+                let byte = if i == 0 {
+                    byte & two_state_first_byte_mask(*width)
+                } else {
+                    byte
+                };
+                result = (result << 8) | byte as u64;
             }
             Some(result)
         }
@@ -664,4 +684,125 @@ pub fn timescale_ps(info: &WaveformInfo) -> u64 {
         _ => 1.0,
     };
     (info.timescale_factor as f64 * unit_ps) as u64
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Reference conversion: bit string -> trimmed hex, independent of the
+    /// byte-level code path we want to check.
+    fn bits_to_hex(bits: &str) -> String {
+        let padded = format!("{:0>width$}", bits, width = bits.len().div_ceil(4) * 4);
+        let hex: String = padded
+            .as_bytes()
+            .chunks(4)
+            .map(|chunk| {
+                let nibble = chunk
+                    .iter()
+                    .fold(0u8, |acc, &b| (acc << 1) | u8::from(b == b'1'));
+                char::from_digit(nibble as u32, 16).unwrap()
+            })
+            .collect();
+        let trimmed = hex.trim_start_matches('0');
+        if trimmed.is_empty() {
+            "0".to_string()
+        } else {
+            trimmed.to_string()
+        }
+    }
+
+    #[test]
+    fn hex_is_msb_first() {
+        // 36-bit value 0x0_0200_1322, stored MSB-first by wellen.
+        let bytes = [0x00u8, 0x02, 0x00, 0x13, 0x22];
+        let val = SignalValue::Binary(&bytes, 36);
+        assert_eq!(signal_value_to_hex(&val), "2001322");
+        assert_eq!(signal_value_to_u64(&val), Some(0x0_0200_1322));
+    }
+
+    #[test]
+    fn hex_never_exceeds_signal_width() {
+        // 20-bit value: the first byte only carries 4 valid bits.
+        let bytes = [0x04u8, 0x30, 0x25];
+        let val = SignalValue::Binary(&bytes, 20);
+        let hex = signal_value_to_hex(&val);
+        assert_eq!(hex, "43025");
+        assert!(hex.len() <= 20usize.div_ceil(4));
+        assert_eq!(signal_value_to_u64(&val), Some(0x43025));
+    }
+
+    #[test]
+    fn first_byte_garbage_is_masked() {
+        // Bits above the signal width must never leak into the value.
+        let bytes = [0xf1u8, 0xff];
+        let val = SignalValue::Binary(&bytes, 9);
+        assert_eq!(signal_value_to_hex(&val), "1ff");
+        assert_eq!(signal_value_to_u64(&val), Some(0x1ff));
+    }
+
+    #[test]
+    fn narrow_and_zero_values() {
+        assert_eq!(signal_value_to_hex(&SignalValue::Binary(&[0x01], 1)), "1");
+        assert_eq!(signal_value_to_hex(&SignalValue::Binary(&[0x00], 1)), "0");
+        assert_eq!(
+            signal_value_to_hex(&SignalValue::Binary(&[0x00, 0x00], 16)),
+            "0"
+        );
+    }
+
+    #[test]
+    fn wide_values_have_no_u64() {
+        let bytes = [0xffu8; 16];
+        let val = SignalValue::Binary(&bytes, 128);
+        assert_eq!(signal_value_to_u64(&val), None);
+        assert_eq!(signal_value_to_hex(&val), "f".repeat(32));
+    }
+
+    #[test]
+    fn hex_matches_bit_string_on_fixture() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/fixtures/arbiter.fst");
+        let handle = WaveformHandle::open(path).expect("open fixture");
+        let mut checked = 0usize;
+        handle
+            .with_wave(|wave| {
+                let refs: Vec<SignalRef> = wave
+                    .hierarchy()
+                    .iter_vars()
+                    .map(|v| v.signal_ref())
+                    .collect();
+                wave.load_signals(&refs);
+                for sig_ref in refs {
+                    let signal = wave.get_signal(sig_ref).expect("loaded signal");
+                    for &tt_idx in signal.time_indices() {
+                        let Some(val) = get_signal_value_at_idx(signal, tt_idx) else {
+                            continue;
+                        };
+                        let Some(bits) = val.to_bit_string() else {
+                            continue;
+                        };
+                        assert_eq!(
+                            signal_value_to_hex(&val),
+                            bits_to_hex(&bits),
+                            "hex mismatch for bit string {bits}"
+                        );
+                        if bits.len() <= 64 {
+                            assert_eq!(
+                                signal_value_to_u64(&val),
+                                u64::from_str_radix(&bits, 2).ok(),
+                                "u64 mismatch for bit string {bits}"
+                            );
+                        }
+                        checked += 1;
+                    }
+                }
+                Ok(())
+            })
+            .expect("scan fixture");
+        assert!(checked > 1000, "expected a meaningful number of values, got {checked}");
+    }
 }
