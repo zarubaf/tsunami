@@ -23,6 +23,11 @@ jobs:
       - run: uv sync --extra dev
       - run: uv run maturin develop
       - run: uv run pytest tests/ -v
+      # The engine's value-decoding tests live in Rust: they cross-check hex
+      # and integer conversion against wellen's own bit strings, which Python
+      # cannot see. Scoped to the library crates -- the root `tsunami` crate is
+      # a pyo3 extension and only links under maturin.
+      - run: cargo test -p tsunami-core -p tsunami-serve --locked
 
   build:
     needs: test

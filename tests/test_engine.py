@@ -89,7 +89,7 @@ class TestGetValue:
 
     def test_get_grant_value(self, handle):
         val = engine.get_value(handle, GRANT_0, 500000)
-        assert val["hex"] == "10000"
+        assert val["hex"] == "1"
 
     def test_value_not_found(self, handle):
         with pytest.raises(ValueError, match="Signal not found"):
@@ -101,8 +101,30 @@ class TestGetSnapshot:
         result = engine.get_snapshot(handle, [REQUEST, GRANT_0], 500000)
         assert REQUEST in result
         assert GRANT_0 in result
-        assert result[REQUEST]["hex"] == "253004"
-        assert result[GRANT_0]["hex"] == "10000"
+        assert result[REQUEST]["hex"] == "43025"
+        assert result[GRANT_0]["hex"] == "1"
+
+
+class TestValueEndianness:
+    """Regression: values were byte-reversed for two-state (2-value) signals."""
+
+    def test_hex_fits_in_signal_width(self, handle):
+        # A byte-swapped value shows up as more hex digits than the signal has.
+        for sig in engine.list_signals(handle, "*"):
+            val = engine.get_value(handle, sig["path"], 500000)
+            if val["is_x"] or val["is_z"]:
+                continue
+            max_digits = (sig["width"] + 3) // 4
+            assert len(val["hex"]) <= max_digits, (
+                f"{sig['path']} ({sig['width']} bits) = 0x{val['hex']}"
+            )
+
+    def test_one_hot_grant_is_one_hot(self, handle):
+        # grants_o is a 20-bit one-hot vector; every value must be a power of two.
+        result = engine.get_transitions(handle, GRANT_0, 0, 999000, 10000)
+        for tr in result["transitions"]:
+            value = int(tr["value"], 16)
+            assert value & (value - 1) == 0, f"t={tr['time']}: 0x{tr['value']}"
 
 
 class TestGetTransitions:
@@ -121,7 +143,7 @@ class TestGetTransitions:
     def test_first_transition_value(self, handle):
         result = engine.get_transitions(handle, REQUEST, 0, 5000, 100)
         assert result["transitions"][0]["time"] == 0
-        assert result["transitions"][0]["value"] == "b11f07"
+        assert result["transitions"][0]["value"] == "71fb1"
 
 
 class TestFindNextEdge:
