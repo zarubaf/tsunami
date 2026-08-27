@@ -23,10 +23,13 @@ impl WaveformHandle {
     where
         F: FnOnce(&mut wellen::simple::Waveform) -> Result<R, String>,
     {
+        // Recover from poisoning: a panicking query leaves the waveform with at
+        // most some signals still loaded, which is a cache, not corrupt state.
+        // Failing every later call instead would need a server restart.
         let mut wave = self
             .inner
             .lock()
-            .map_err(|e| format!("Lock error: {e}"))?;
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         f(&mut wave)
     }
 }

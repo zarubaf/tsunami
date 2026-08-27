@@ -16,6 +16,7 @@ use tsunami_core::query::{self, WaveformHandle};
 use tsunami_core::summarise;
 use tsunami_core::time_parse::parse_time;
 
+#[derive(Clone)]
 struct WaveformSession {
     handle: WaveformHandle,
     timescale_ps: u64,
@@ -43,10 +44,7 @@ impl TsunamiServer {
             let n = self.next_id.fetch_add(1, Ordering::Relaxed);
             format!("session-{n}")
         });
-        let mut sessions = self
-            .sessions
-            .lock()
-            .map_err(|e| format!("Lock error: {e}"))?;
+        let mut sessions = self.lock_sessions();
         sessions.insert(
             id.clone(),
             WaveformSession {
@@ -58,18 +56,33 @@ impl TsunamiServer {
         Ok(id)
     }
 
+    /// Lock the session map, recovering from poisoning.
+    ///
+    /// A panicking query can only leave cached signal data behind, so the map
+    /// itself stays consistent. Recovering keeps one bad query from failing
+    /// every later call on every session.
+    fn lock_sessions(&self) -> std::sync::MutexGuard<'_, HashMap<String, WaveformSession>> {
+        self.sessions
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
     fn with_session<F, R>(&self, session_id: &str, f: F) -> Result<R, String>
     where
         F: FnOnce(&WaveformSession) -> Result<R, String>,
     {
-        let sessions = self
-            .sessions
-            .lock()
-            .map_err(|e| format!("Lock error: {e}"))?;
-        let session = sessions.get(session_id).ok_or_else(|| {
-            format!("Unknown waveform session '{session_id}'. Call open_waveform(path) first.")
-        })?;
-        f(session)
+        // Copy the session out and release the map lock before running the
+        // query, so queries on different sessions do not serialise.
+        let session = {
+            let sessions = self.lock_sessions();
+            sessions.get(session_id).cloned().ok_or_else(|| {
+                format!("Unknown waveform session '{session_id}'. Call open_waveform(path) first.")
+            })?
+        };
+        // Turn a panicking query into an error for that call alone, so the
+        // client always gets a response and other sessions are unaffected.
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(&session)))
+            .unwrap_or_else(|_| Err("Query panicked, see server log for details.".to_string()))
     }
 
     fn parse_t(&self, session_id: &str, value: &str) -> Result<u64, String> {
@@ -334,7 +347,7 @@ struct FindAnomaliesParams {
 
 #[tool_router]
 impl TsunamiServer {
-    #[tool(description = "Open a waveform file (FST or VCD) and return a session ID.")]
+    #[tool(description = "Open a waveform file (FST or VCD) and return a session ID.", annotations(read_only_hint = true))]
     fn open_waveform(&self, Parameters(p): Parameters<OpenWaveformParams>) -> String {
         let result = (|| -> Result<serde_json::Value, String> {
             let session_id = self.open_session(&p.path, None)?;
@@ -356,7 +369,7 @@ impl TsunamiServer {
         }
     }
 
-    #[tool(description = "Get waveform metadata for an open waveform session.")]
+    #[tool(description = "Get waveform metadata for an open waveform session.", annotations(read_only_hint = true))]
     fn waveform_info(&self, Parameters(p): Parameters<SessionParams>) -> String {
         let result = self.with_session(&p.session_id, |s| {
             let info = query::waveform_info(&s.handle)?;
@@ -377,7 +390,7 @@ impl TsunamiServer {
         }
     }
 
-    #[tool(description = "Get start/end time and time-step count for an open waveform session.")]
+    #[tool(description = "Get start/end time and time-step count for an open waveform session.", annotations(read_only_hint = true))]
     fn get_waveform_length(&self, Parameters(p): Parameters<SessionParams>) -> String {
         let result = self.with_session(&p.session_id, |s| {
             let len = query::get_waveform_length(&s.handle)?;
@@ -395,7 +408,7 @@ impl TsunamiServer {
         }
     }
 
-    #[tool(description = "Search for signals matching a glob pattern in a waveform session. Examples: \"*clk*\", \"tb.dut.*valid*\", \"*tl_a*\"")]
+    #[tool(description = "Search for signals matching a glob pattern in a waveform session. Examples: \"*clk*\", \"tb.dut.*valid*\", \"*tl_a*\"", annotations(read_only_hint = true))]
     fn search_signals(&self, Parameters(p): Parameters<SearchSignalsParams>) -> String {
         let pattern = p.pattern.unwrap_or_else(|| "*".to_string());
         let limit = p.limit.unwrap_or(50);
@@ -419,7 +432,7 @@ impl TsunamiServer {
         }
     }
 
-    #[tool(description = "Browse the signal hierarchy for an open waveform session.")]
+    #[tool(description = "Browse the signal hierarchy for an open waveform session.", annotations(read_only_hint = true))]
     fn browse_scopes(&self, Parameters(p): Parameters<BrowseScopesParams>) -> String {
         let prefix = p.prefix.unwrap_or_default();
         let limit = p.limit.unwrap_or(50);
@@ -469,7 +482,7 @@ impl TsunamiServer {
         }
     }
 
-    #[tool(description = "Get metadata for a single signal in a waveform session.")]
+    #[tool(description = "Get metadata for a single signal in a waveform session.", annotations(read_only_hint = true))]
     fn get_signal_info(&self, Parameters(p): Parameters<GetSignalInfoParams>) -> String {
         let result = self.with_session(&p.session_id, |s| {
             let info = query::get_signal_info(&s.handle, &p.signal)?;
@@ -484,7 +497,7 @@ impl TsunamiServer {
         }
     }
 
-    #[tool(description = "Find rising, falling, or any edges on a signal within an optional window.")]
+    #[tool(description = "Find rising, falling, or any edges on a signal within an optional window.", annotations(read_only_hint = true))]
     fn find_edge(&self, Parameters(p): Parameters<FindEdgeParams>) -> String {
         let start_str = p.start.unwrap_or_else(|| "0".to_string());
         let limit = p.limit.unwrap_or(50);
@@ -513,7 +526,7 @@ impl TsunamiServer {
         }
     }
 
-    #[tool(description = "Find contiguous ranges where a signal matches a simple comparison.")]
+    #[tool(description = "Find contiguous ranges where a signal matches a simple comparison.", annotations(read_only_hint = true))]
     fn find_value(&self, Parameters(p): Parameters<FindValueParams>) -> String {
         let start_str = p.start.unwrap_or_else(|| "0".to_string());
         let limit = p.limit.unwrap_or(50);
@@ -550,7 +563,7 @@ impl TsunamiServer {
         }
     }
 
-    #[tool(description = "Find ranges where multiple simple signal conditions hold together.")]
+    #[tool(description = "Find ranges where multiple simple signal conditions hold together.", annotations(read_only_hint = true))]
     fn find_pattern(&self, Parameters(p): Parameters<FindPatternParams>) -> String {
         let start_str = p.start.unwrap_or_else(|| "0".to_string());
         let limit = p.limit.unwrap_or(50);
@@ -605,7 +618,7 @@ impl TsunamiServer {
         }
     }
 
-    #[tool(description = "Get values of multiple signals at a single time point.")]
+    #[tool(description = "Get values of multiple signals at a single time point.", annotations(read_only_hint = true))]
     fn get_snapshot(&self, Parameters(p): Parameters<GetSnapshotParams>) -> String {
         let result = (|| -> Result<serde_json::Value, String> {
             let t = self.parse_t(&p.session_id, &p.time)?;
@@ -624,7 +637,7 @@ impl TsunamiServer {
         }
     }
 
-    #[tool(description = "Get transitions for multiple signals in a time window. Auto-summarises if a signal has more than max_edges_per_signal transitions.")]
+    #[tool(description = "Get transitions for multiple signals in a time window. Auto-summarises if a signal has more than max_edges_per_signal transitions.", annotations(read_only_hint = true))]
     fn get_signal_window(&self, Parameters(p): Parameters<GetSignalWindowParams>) -> String {
         let max_edges = p.max_edges_per_signal.unwrap_or(200);
 
@@ -681,7 +694,7 @@ impl TsunamiServer {
         }
     }
 
-    #[tool(description = "Find first timestamp matching a predicate expression.")]
+    #[tool(description = "Find first timestamp matching a predicate expression.", annotations(read_only_hint = true))]
     fn find_first_match(&self, Parameters(p): Parameters<FindFirstMatchParams>) -> String {
         let after_str = p.after.unwrap_or_else(|| "0".to_string());
 
@@ -705,7 +718,7 @@ impl TsunamiServer {
         }
     }
 
-    #[tool(description = "Find all timestamps matching a predicate expression in a window.")]
+    #[tool(description = "Find all timestamps matching a predicate expression in a window.", annotations(read_only_hint = true))]
     fn find_all_matches(&self, Parameters(p): Parameters<FindAllMatchesParams>) -> String {
         let result = (|| -> Result<serde_json::Value, String> {
             let t0_ps = self.parse_t(&p.session_id, &p.t0)?;
@@ -730,7 +743,7 @@ impl TsunamiServer {
         }
     }
 
-    #[tool(description = "Detect anomalies in a signal: glitches, unexpected gaps, stuck signals.")]
+    #[tool(description = "Detect anomalies in a signal: glitches, unexpected gaps, stuck signals.", annotations(read_only_hint = true))]
     fn find_anomalies(&self, Parameters(p): Parameters<FindAnomaliesParams>) -> String {
         let result = (|| -> Result<serde_json::Value, String> {
             let t0_ps = self.parse_t(&p.session_id, &p.t0)?;
