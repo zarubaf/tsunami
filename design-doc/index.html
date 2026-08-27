@@ -1,0 +1,1761 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="AI-assisted hardware waveform debugging tool">
+      
+      
+      
+      
+        <link rel="prev" href="../api/time_parse/">
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.5">
+    
+    
+      
+        <title>Design Document - Tsunami</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue-grey" data-md-color-accent="cyan">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#tsunami-design-document" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Tsunami" class="md-header__button md-logo" aria-label="Tsunami" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Tsunami
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Design Document
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="blue-grey" data-md-color-accent="cyan"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="blue-grey" data-md-color-accent="cyan"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/zarubaf/tsunami" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    zarubaf/tsunami
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Tsunami" class="md-nav__button md-logo" aria-label="Tsunami" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Tsunami
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/zarubaf/tsunami" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    zarubaf/tsunami
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/predicates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Predicate DSL
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/engine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Engine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/predicate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Predicate DSL
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/time_parse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Time Parser
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design Document
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design Document
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-motivation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1 Motivation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2 Architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2 Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-layered-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Layered Design
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-two-mcp-servers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Two MCP Servers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-pyo3-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 PyO3 Integration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-predicate-dsl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3 Predicate DSL
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3 Predicate DSL">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-design-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 Design Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-operators" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 Operators
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-example-tilelink-transaction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 Example: TileLink Transaction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-signal-scope-and-name-resolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.4 Signal Scope and Name Resolution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#35-rust-ast-representation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.5 Rust AST Representation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-query-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4 Query API
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4 Query API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-time-normalisation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Time Normalisation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-discovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Discovery
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-point-queries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 Point Queries
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#44-range-queries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.4 Range Queries
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#45-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.5 Search
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#46-summarisation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.6 Summarisation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-scope-semantic-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5 µScope Semantic Layer
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5 µScope Semantic Layer">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-per-design-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 Per-Design Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-protocol-decoders" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 Protocol Decoders
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#53-pipeline-tracer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.3 Pipeline Tracer
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-mcp-tool-surface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6 MCP Tool Surface
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6 MCP Tool Surface">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-wellen-mcp-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 wellen MCP Tools
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-scope-mcp-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 µScope MCP Tools
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-cli-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 CLI Mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-repository-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7 Repository Structure
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-implementation-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8 Implementation Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-key-design-decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9 Key Design Decisions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9 Key Design Decisions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pyo3-over-subprocess" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PyO3 over subprocess
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wellen-over-fstapi-ffi" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        wellen over fstapi FFI
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wal-rejected" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WAL rejected
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#two-mcps-not-one" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Two MCPs, not one
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scope-not-derived-from-wellen" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        µScope not derived from wellen
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-future-extensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10 Future Extensions
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="tsunami-design-document">Tsunami — Design Document<a class="headerlink" href="#tsunami-design-document" title="Permanent link">&para;</a></h1>
+<p><em>AI-Assisted Hardware Waveform Debugging · v0.1 Draft · Axelera AI Confidential</em></p>
+<hr />
+<h2 id="1-motivation">1  Motivation<a class="headerlink" href="#1-motivation" title="Permanent link">&para;</a></h2>
+<p>Hardware simulation debugging today is a manual, visual, and time-consuming process. An engineer opens GTKWave, navigates thousands of signals, visually correlates events across protocol boundaries, and forms hypotheses by hand. For large designs — OoO CPU cores, coherence fabrics, FPGA emulation traces — this process does not scale.</p>
+<p>WaveformMCP replaces the manual query loop with an AI-driven one. Claude Code gains the ability to:</p>
+<ul>
+<li>Discover and query signals from FST/VCD files at arbitrary time points</li>
+<li>Search for complex multi-signal conditions using a composable predicate language</li>
+<li>Decode protocol transactions (TileLink, AXI, custom) from raw signals</li>
+<li>Trace instructions through pipeline stages and identify microarchitectural bugs</li>
+<li>Summarise large waveform windows without flooding the context window</li>
+</ul>
+<p>Target use cases: <strong>assertion triage</strong> (trace backwards from a failing assertion to root cause), <strong>protocol violation detection</strong> (arbiter misfires, coherence errors), and <strong>pipeline debugging</strong> (phantom wakeups, wrong instruction issue in OoO cores).</p>
+<hr />
+<h2 id="2-architecture">2  Architecture<a class="headerlink" href="#2-architecture" title="Permanent link">&para;</a></h2>
+<h3 id="21-layered-design">2.1  Layered Design<a class="headerlink" href="#21-layered-design" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Claude Code
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    ↕  MCP protocol (JSON, via mcp-python SDK)
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>Python MCP Server
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>  ├── wellen MCP tools       raw signal queries, generic
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>  └── µScope MCP tools       transaction semantics, Loom-specific
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    ↕  PyO3 direct function calls (no serialisation)
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>Rust waveform_engine.so
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>  └── wellen crate           FST/VCD, lazy memory-mapped loading
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Technology</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MCP Server</td>
+<td>Python (mcp-python SDK)</td>
+<td>MCP tool definitions, protocol decoders, µScope semantic layer, predicate DSL builder</td>
+</tr>
+<tr>
+<td>Query Engine</td>
+<td>Rust + PyO3</td>
+<td>Signal access, transition scanning, predicate evaluation, summarisation. Python never on the critical path.</td>
+</tr>
+<tr>
+<td>Waveform I/O</td>
+<td>wellen crate (Rust)</td>
+<td>FST/VCD/GHW parsing, memory-mapped lazy signal loading, multithreaded VCD parse, safe Rust throughout</td>
+</tr>
+</tbody>
+</table>
+<h3 id="22-two-mcp-servers">2.2  Two MCP Servers<a class="headerlink" href="#22-two-mcp-servers" title="Permanent link">&para;</a></h3>
+<p>Two separate MCP servers are exposed, independently useful and composable in the same Claude Code session:</p>
+<ul>
+<li><strong>wellen MCP</strong> — generic, design-agnostic. Works on any FST/VCD file. Raw signal queries, edge search, predicate evaluation, summarisation. No protocol or pipeline knowledge.</li>
+<li><strong>µScope MCP</strong> — semantic, Loom-specific. Consumes the wellen MCP foundation and lifts it to transaction level. TileLink/AXI decoders, pipeline tracers, coherence violation detectors. Requires a per-design config mapping signal paths.</li>
+</ul>
+<p>Claude Code can use both simultaneously: start with µScope for the high-level transaction picture, drop to wellen when sub-transaction signal behaviour needs inspection.</p>
+<h3 id="23-pyo3-integration">2.3  PyO3 Integration<a class="headerlink" href="#23-pyo3-integration" title="Permanent link">&para;</a></h3>
+<p>The Rust query engine is compiled as a native Python extension (<code>.so</code> / <code>.pyd</code>) using PyO3 and maturin. There is no subprocess, no serialisation boundary, and no IPC protocol between the Python MCP layer and the Rust engine.</p>
+<p>Data never leaves Rust memory until Python actually needs it. For summarised queries — where Rust scans millions of transitions and returns a handful of anomaly timestamps — the cross-language overhead is negligible.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Python MCP layer — direct function call into Rust</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">waveform_engine</span>  <span class="c1"># compiled .so via PyO3</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">transitions</span> <span class="o">=</span> <span class="n">waveform_engine</span><span class="o">.</span><span class="n">get_transitions</span><span class="p">(</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="s2">&quot;tb.dut.core.tl_a_valid&quot;</span><span class="p">,</span> <span class="n">t0_ps</span><span class="o">=</span><span class="mi">1_200_000</span><span class="p">,</span> <span class="n">t1_ps</span><span class="o">=</span><span class="mi">1_400_000</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="p">)</span>
+</code></pre></div>
+<hr />
+<h2 id="3-predicate-dsl">3  Predicate DSL<a class="headerlink" href="#3-predicate-dsl" title="Permanent link">&para;</a></h2>
+<h3 id="31-design-goals">3.1  Design Goals<a class="headerlink" href="#31-design-goals" title="Permanent link">&para;</a></h3>
+<p>Reconstructing protocol transactions requires composable, multi-signal predicates. A simple list of signal/value pairs is insufficient for expressing handshakes, ordering constraints, and protocol violations. The predicate DSL must:</p>
+<ul>
+<li>Be expressible in natural Python syntax via operator overloading and method chaining</li>
+<li>Build a pure data structure (AST) — no execution in Python</li>
+<li>Hand the entire tree to Rust in a single PyO3 call</li>
+<li>Allow Rust to evaluate the predicate at every transition point in one scan pass</li>
+</ul>
+<h3 id="32-operators">3.2  Operators<a class="headerlink" href="#32-operators" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Operator / Method</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>a &amp; b</code></td>
+<td>Logical AND</td>
+</tr>
+<tr>
+<td><code>a                            | b</code></td>
+<td>Logical OR</td>
+</tr>
+<tr>
+<td><code>~a</code></td>
+<td>Logical NOT</td>
+</tr>
+<tr>
+<td><code>a ^ b</code></td>
+<td>Logical XOR</td>
+</tr>
+<tr>
+<td><code>sig == val</code></td>
+<td>Signal equals constant</td>
+</tr>
+<tr>
+<td><code>sig &gt; val</code> / <code>sig &lt; val</code></td>
+<td>Numeric comparison (unsigned)</td>
+</tr>
+<tr>
+<td><code>sig.rise()</code></td>
+<td>Rising edge</td>
+</tr>
+<tr>
+<td><code>sig.fall()</code></td>
+<td>Falling edge</td>
+</tr>
+<tr>
+<td><code>a &gt;&gt; b</code></td>
+<td>Sequence: a followed by b (unbounded)</td>
+</tr>
+<tr>
+<td><code>a &gt;&gt; (b, window_ps)</code></td>
+<td>Sequence: a followed by b within window</td>
+</tr>
+<tr>
+<td><code>a.preceded_by(b, within_ps)</code></td>
+<td>b occurred before a within window</td>
+</tr>
+<tr>
+<td><code>sig[hi:lo]</code></td>
+<td>Bitfield extraction before comparison</td>
+</tr>
+</tbody>
+</table>
+<h3 id="33-example-tilelink-transaction">3.3  Example: TileLink Transaction<a class="headerlink" href="#33-example-tilelink-transaction" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">with</span> <span class="n">engine</span><span class="o">.</span><span class="n">scope</span><span class="p">(</span><span class="s2">&quot;tb.dut&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">s</span><span class="p">:</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="c1"># A-channel handshake with specific opcode (AcquireBlock = 4)</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">acquire</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>        <span class="n">s</span><span class="o">.</span><span class="n">tl_a_valid</span> <span class="o">&amp;</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>        <span class="n">s</span><span class="o">.</span><span class="n">tl_a_ready</span> <span class="o">&amp;</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>        <span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">tl_a_opcode</span> <span class="o">==</span> <span class="mi">4</span><span class="p">)</span> <span class="o">&amp;</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>        <span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">tl_a_source</span> <span class="o">==</span> <span class="mi">3</span><span class="p">)</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="p">)</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="c1"># Phantom wakeup: instruction issued but operand not ready</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="n">phantom</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>        <span class="n">s</span><span class="o">.</span><span class="n">iq</span><span class="o">.</span><span class="n">issue_valid</span><span class="o">.</span><span class="n">rise</span><span class="p">()</span> <span class="o">&amp;</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>        <span class="o">~</span><span class="n">s</span><span class="o">.</span><span class="n">iq</span><span class="o">.</span><span class="n">src1_ready</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>    <span class="p">)</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>    <span class="c1"># Protocol violation: D-channel Grant with no preceding Acquire</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>    <span class="n">spurious_grant</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>        <span class="n">s</span><span class="o">.</span><span class="n">tl_d_valid</span><span class="o">.</span><span class="n">rise</span><span class="p">()</span>
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>        <span class="o">.</span><span class="n">preceded_by</span><span class="p">(</span><span class="n">acquire</span><span class="p">,</span> <span class="n">within_ps</span><span class="o">=</span><span class="mi">50_000</span><span class="p">)</span>
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>        <span class="o">.</span><span class="fm">__invert__</span><span class="p">()</span>
+<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>    <span class="p">)</span>
+<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>
+<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>    <span class="c1"># Full round-trip sequence</span>
+<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a>    <span class="n">roundtrip</span> <span class="o">=</span> <span class="n">acquire</span><span class="o">.</span><span class="n">rise</span><span class="p">()</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">tl_d_valid</span> <span class="o">&amp;</span> <span class="n">s</span><span class="o">.</span><span class="n">tl_d_ready</span><span class="p">,</span> <span class="mi">20</span> <span class="o">*</span> <span class="n">CYCLE_PS</span><span class="p">)</span>
+<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>
+<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a><span class="c1"># All scanning happens in Rust — single PyO3 call</span>
+<a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a><span class="n">violations</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="n">spurious_grant</span><span class="p">,</span> <span class="n">t0_ps</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">t1_ps</span><span class="o">=</span><span class="n">sim_end</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="34-signal-scope-and-name-resolution">3.4  Signal Scope and Name Resolution<a class="headerlink" href="#34-signal-scope-and-name-resolution" title="Permanent link">&para;</a></h3>
+<p>The <code>engine.scope()</code> context manager sets a hierarchy prefix. Signal attribute access resolves against the wellen Hierarchy, raising an error at tree-construction time if the path does not exist — not at scan time. This catches typos immediately.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">with</span> <span class="n">engine</span><span class="o">.</span><span class="n">signals</span><span class="p">(</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">v</span>  <span class="o">=</span> <span class="s2">&quot;tb.dut.tl_a_valid&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">r</span>  <span class="o">=</span> <span class="s2">&quot;tb.dut.tl_a_ready&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">op</span> <span class="o">=</span> <span class="s2">&quot;tb.dut.tl_a_opcode&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="p">)</span> <span class="k">as</span> <span class="n">s</span><span class="p">:</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">handshake</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">v</span> <span class="o">&amp;</span> <span class="n">s</span><span class="o">.</span><span class="n">r</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="mi">4</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="35-rust-ast-representation">3.5  Rust AST Representation<a class="headerlink" href="#35-rust-ast-representation" title="Permanent link">&para;</a></h3>
+<p>The Python DSL builds a tree of plain dataclasses. PyO3 maps these to a Rust enum for zero-overhead evaluation:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="cp">#[derive(FromPyObject)]</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">enum</span><span class="w"> </span><span class="nc">Expr</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="n">Signal</span><span class="p">(</span><span class="nb">String</span><span class="p">),</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="n">Const</span><span class="p">(</span><span class="kt">u64</span><span class="p">),</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="n">And</span><span class="p">(</span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">Expr</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">Expr</span><span class="o">&gt;</span><span class="p">),</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="n">Or</span><span class="p">(</span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">Expr</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">Expr</span><span class="o">&gt;</span><span class="p">),</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="n">Not</span><span class="p">(</span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">Expr</span><span class="o">&gt;</span><span class="p">),</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="n">Xor</span><span class="p">(</span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">Expr</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">Expr</span><span class="o">&gt;</span><span class="p">),</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">    </span><span class="nb">Eq</span><span class="p">(</span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">Expr</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">Expr</span><span class="o">&gt;</span><span class="p">),</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">    </span><span class="n">Gt</span><span class="p">(</span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">Expr</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">Expr</span><span class="o">&gt;</span><span class="p">),</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">    </span><span class="n">Lt</span><span class="p">(</span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">Expr</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">Expr</span><span class="o">&gt;</span><span class="p">),</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">    </span><span class="n">Rise</span><span class="p">(</span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">Expr</span><span class="o">&gt;</span><span class="p">),</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">    </span><span class="n">Fall</span><span class="p">(</span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">Expr</span><span class="o">&gt;</span><span class="p">),</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">    </span><span class="n">Sequence</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">a</span><span class="p">:</span><span class="w"> </span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">Expr</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p">:</span><span class="w"> </span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">Expr</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">within_ps</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="kt">u64</span><span class="o">&gt;</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="w">    </span><span class="n">PrecededBy</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">a</span><span class="p">:</span><span class="w"> </span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">Expr</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p">:</span><span class="w"> </span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">Expr</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">within_ps</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="kt">u64</span><span class="o">&gt;</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="w">    </span><span class="n">Mask</span><span class="p">(</span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">Expr</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="kt">u64</span><span class="p">),</span>
+<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="w">    </span><span class="n">Shift</span><span class="p">(</span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">Expr</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="p">),</span>
+<a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="p">}</span>
+</code></pre></div>
+<p>Evaluation is a single pass over the union of transition points of all signals referenced in the expression. Only the signals actually used by the predicate are loaded from the FST file.</p>
+<hr />
+<h2 id="4-query-api">4  Query API<a class="headerlink" href="#4-query-api" title="Permanent link">&para;</a></h2>
+<p>All operations are Python functions that delegate to Rust via PyO3. Timestamps are accepted in human-readable form at the boundary and normalised to picoseconds internally before crossing into Rust.</p>
+<h3 id="41-time-normalisation">4.1  Time Normalisation<a class="headerlink" href="#41-time-normalisation" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">parse_time</span><span class="p">(</span><span class="s2">&quot;1284ns&quot;</span><span class="p">)</span>   <span class="err">→</span>  <span class="mi">1_284_000</span>   <span class="c1"># picoseconds</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">parse_time</span><span class="p">(</span><span class="s2">&quot;1.284us&quot;</span><span class="p">)</span>  <span class="err">→</span>  <span class="mi">1_284_000</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">parse_time</span><span class="p">(</span><span class="mi">1_284_000</span><span class="p">)</span>  <span class="err">→</span>  <span class="mi">1_284_000</span>   <span class="c1"># raw ps passthrough</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">parse_time</span><span class="p">(</span><span class="s2">&quot;642cyc&quot;</span><span class="p">)</span>   <span class="err">→</span>  <span class="mi">642</span> <span class="o">*</span> <span class="n">timescale_ps</span>
+</code></pre></div>
+<h3 id="42-discovery">4.2  Discovery<a class="headerlink" href="#42-discovery" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">list_signals</span><span class="p">(</span><span class="n">pattern</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">SignalInfo</span><span class="p">]</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="c1"># SignalInfo: path, width, total_transitions, first_change_ps, last_change_ps</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">signal_info</span><span class="p">(</span><span class="n">signal</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SignalInfo</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="n">list_scopes</span><span class="p">(</span><span class="n">prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="c1"># hierarchical browse: list_scopes(&quot;tb.dut.core&quot;) → [&quot;tb.dut.core.iq&quot;, ...]</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="n">waveform_info</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">WaveformInfo</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="c1"># timescale, total duration, signal count, simulator version, date</span>
+</code></pre></div>
+<h3 id="43-point-queries">4.3  Point Queries<a class="headerlink" href="#43-point-queries" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">get_value</span><span class="p">(</span><span class="n">signal</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">time_ps</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Value</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="c1"># Value: { hex: str, is_x: bool, is_z: bool }</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">get_snapshot</span><span class="p">(</span><span class="n">signals</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">time_ps</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Value</span><span class="p">]</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="c1"># single wellen pass over all signals — preferred over multiple get_value calls</span>
+</code></pre></div>
+<h3 id="44-range-queries">4.4  Range Queries<a class="headerlink" href="#44-range-queries" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">get_transitions</span><span class="p">(</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="n">signal</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">t0_ps</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">t1_ps</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    <span class="n">max_edges</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>       <span class="c1"># hard cap; returns Summary if exceeded</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TransitionResult</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="n">get_window</span><span class="p">(</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>    <span class="n">signals</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>    <span class="n">t0_ps</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>    <span class="n">t1_ps</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>    <span class="n">max_edges_per_signal</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">200</span><span class="p">,</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">TransitionResult</span><span class="p">]</span>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="c1"># multi-signal range query in a single pass — the main workhorse</span>
+</code></pre></div>
+<h3 id="45-search">4.5  Search<a class="headerlink" href="#45-search" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">find_next_edge</span><span class="p">(</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="n">signal</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="n">direction</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;rising&quot;</span><span class="p">,</span> <span class="s2">&quot;falling&quot;</span><span class="p">,</span> <span class="s2">&quot;any&quot;</span><span class="p">],</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="n">after_ps</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="n">find_first</span><span class="p">(</span><span class="n">predicate</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">after_ps</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="c1"># entire scan in Rust; single PyO3 call</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="n">find_all</span><span class="p">(</span><span class="n">predicate</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">t0_ps</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">t1_ps</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="c1"># all timestamps where predicate is true in window</span>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="n">scan</span><span class="p">(</span><span class="n">predicate</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">t0_ps</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">t1_ps</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Value</span><span class="p">]]</span>
+<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="c1"># evaluate predicate at every transition point; used to build transaction decoders</span>
+</code></pre></div>
+<h3 id="46-summarisation">4.6  Summarisation<a class="headerlink" href="#46-summarisation" title="Permanent link">&para;</a></h3>
+<p>Summarisation happens in Rust before data crosses to Python. This is the mechanism that prevents large waveform windows from flooding Claude's context window.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">summarize</span><span class="p">(</span><span class="n">signal</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">t0_ps</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">t1_ps</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Summary</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="c1"># Summary: total_transitions, dominant_period_ps, duty_cycle,</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="c1">#          value_histogram (non-clock signals), anomalies list</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">summarize_window</span><span class="p">(</span><span class="n">signals</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">t0_ps</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">t1_ps</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Summary</span><span class="p">]</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="n">find_anomalies</span><span class="p">(</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>    <span class="n">signal</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>    <span class="n">t0_ps</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>    <span class="n">t1_ps</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>    <span class="n">expected_period_ps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>   <span class="c1"># inferred if None</span>
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Anomaly</span><span class="p">]</span>
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="c1"># Anomaly: { time_ps, kind: &quot;glitch&quot; | &quot;gap&quot; | &quot;stuck&quot;, detail }</span>
+</code></pre></div>
+<p>Example summarised output for a 10µs window with 48k transitions:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="p">{</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">&quot;total_transitions&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">48291</span><span class="p">,</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="nt">&quot;dominant_period_ps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2000</span><span class="p">,</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span><span class="nt">&quot;anomalies&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;t&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1284300</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;kind&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gap&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;gap_ps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">6000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;expected_ps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2000</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;t&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2019100</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;kind&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gap&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;gap_ps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;expected_ps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2000</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="p">}</span>
+</code></pre></div>
+<hr />
+<h2 id="5-scope-semantic-layer">5  µScope Semantic Layer<a class="headerlink" href="#5-scope-semantic-layer" title="Permanent link">&para;</a></h2>
+<h3 id="51-per-design-configuration">5.1  Per-Design Configuration<a class="headerlink" href="#51-per-design-configuration" title="Permanent link">&para;</a></h3>
+<p>Signal path mappings are centralised in <code>config.py</code>. This is the only file that changes when signal hierarchy changes in the RTL. All decoders reference it, so a path rename is a one-line fix.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># config.py — per-design signal name mappings</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="n">TILELINK</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>    <span class="s2">&quot;a_valid&quot;</span><span class="p">:</span>   <span class="s2">&quot;tb.dut.core.tl_out_a_valid&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>    <span class="s2">&quot;a_ready&quot;</span><span class="p">:</span>   <span class="s2">&quot;tb.dut.core.tl_out_a_ready&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>    <span class="s2">&quot;a_opcode&quot;</span><span class="p">:</span>  <span class="s2">&quot;tb.dut.core.tl_out_a_bits_opcode&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>    <span class="s2">&quot;a_address&quot;</span><span class="p">:</span> <span class="s2">&quot;tb.dut.core.tl_out_a_bits_address&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>    <span class="s2">&quot;a_source&quot;</span><span class="p">:</span>  <span class="s2">&quot;tb.dut.core.tl_out_a_bits_source&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="p">}</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="n">ISSUE_QUEUE</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>    <span class="s2">&quot;entry_valid&quot;</span><span class="p">:</span>    <span class="s2">&quot;tb.dut.core.iq.entry_valid&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>    <span class="s2">&quot;entry_src1_rdy&quot;</span><span class="p">:</span> <span class="s2">&quot;tb.dut.core.iq.entry_src1_ready&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>    <span class="s2">&quot;issue_sel&quot;</span><span class="p">:</span>      <span class="s2">&quot;tb.dut.core.iq.issue_select&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>    <span class="s2">&quot;issue_pc&quot;</span><span class="p">:</span>       <span class="s2">&quot;tb.dut.core.iq.issue_pc&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="52-protocol-decoders">5.2  Protocol Decoders<a class="headerlink" href="#52-protocol-decoders" title="Permanent link">&para;</a></h3>
+<p>Each decoder is a Python class that uses the predicate DSL and query API to reconstruct domain-level objects from raw signals. Heavy scanning is delegated to Rust; Python handles orchestration only.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">TileLinkDecoder</span><span class="p">:</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">get_transactions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t0_ps</span><span class="p">,</span> <span class="n">t1_ps</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">TLTransaction</span><span class="p">]:</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>        <span class="c1"># 1. find all A-channel handshakes via find_all()</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>        <span class="c1"># 2. snapshot opcode/address/source at each handshake time</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>        <span class="c1"># 3. find matching D-channel response by source ID</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>        <span class="c1"># 4. return decoded {opcode, address, source, latency_ps, ...}</span>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">find_violations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t0_ps</span><span class="p">,</span> <span class="n">t1_ps</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">TLViolation</span><span class="p">]:</span>
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>        <span class="c1"># Grant without pending Acquire, source ID reuse, etc.</span>
+</code></pre></div>
+<p>Full transaction reconstruction example:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_transactions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t0_ps</span><span class="p">,</span> <span class="n">t1_ps</span><span class="p">):</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>    <span class="n">cfg</span> <span class="o">=</span> <span class="n">TILELINK</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>    <span class="k">with</span> <span class="n">engine</span><span class="o">.</span><span class="n">signals</span><span class="p">(</span><span class="o">**</span><span class="n">cfg</span><span class="p">)</span> <span class="k">as</span> <span class="n">s</span><span class="p">:</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>        <span class="n">a_handshake</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">a_valid</span> <span class="o">&amp;</span> <span class="n">s</span><span class="o">.</span><span class="n">a_ready</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>    <span class="n">req_times</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="n">a_handshake</span><span class="p">,</span> <span class="n">t0_ps</span><span class="p">,</span> <span class="n">t1_ps</span><span class="p">)</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>    <span class="n">transactions</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>    <span class="k">for</span> <span class="n">t_req</span> <span class="ow">in</span> <span class="n">req_times</span><span class="p">:</span>
+<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>        <span class="n">snap</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">get_snapshot</span><span class="p">(</span>
+<a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a>            <span class="p">[</span><span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;a_opcode&quot;</span><span class="p">],</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;a_address&quot;</span><span class="p">],</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;a_source&quot;</span><span class="p">]],</span> <span class="n">t_req</span>
+<a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>        <span class="p">)</span>
+<a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a>        <span class="n">d_match</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">signals</span><span class="p">(</span>
+<a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a>            <span class="n">dv</span> <span class="o">=</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;d_valid&quot;</span><span class="p">],</span> <span class="n">dr</span> <span class="o">=</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;d_ready&quot;</span><span class="p">],</span> <span class="n">ds</span> <span class="o">=</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;d_source&quot;</span><span class="p">]</span>
+<a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a>        <span class="p">)</span>
+<a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a>        <span class="k">with</span> <span class="n">d_match</span> <span class="k">as</span> <span class="n">s</span><span class="p">:</span>
+<a id="__codelineno-14-16" name="__codelineno-14-16" href="#__codelineno-14-16"></a>            <span class="n">resp_pred</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">dv</span> <span class="o">&amp;</span> <span class="n">s</span><span class="o">.</span><span class="n">dr</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">ds</span> <span class="o">==</span> <span class="nb">int</span><span class="p">(</span><span class="n">snap</span><span class="p">[</span><span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;a_source&quot;</span><span class="p">]],</span> <span class="mi">16</span><span class="p">))</span>
+<a id="__codelineno-14-17" name="__codelineno-14-17" href="#__codelineno-14-17"></a>        <span class="n">t_resp</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">find_first</span><span class="p">(</span><span class="n">resp_pred</span><span class="p">,</span> <span class="n">after_ps</span><span class="o">=</span><span class="n">t_req</span><span class="p">)</span>
+<a id="__codelineno-14-18" name="__codelineno-14-18" href="#__codelineno-14-18"></a>
+<a id="__codelineno-14-19" name="__codelineno-14-19" href="#__codelineno-14-19"></a>        <span class="n">transactions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">TLTransaction</span><span class="p">(</span>
+<a id="__codelineno-14-20" name="__codelineno-14-20" href="#__codelineno-14-20"></a>            <span class="n">opcode</span>   <span class="o">=</span> <span class="n">snap</span><span class="p">[</span><span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;a_opcode&quot;</span><span class="p">]],</span>
+<a id="__codelineno-14-21" name="__codelineno-14-21" href="#__codelineno-14-21"></a>            <span class="n">address</span>  <span class="o">=</span> <span class="n">snap</span><span class="p">[</span><span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;a_address&quot;</span><span class="p">]],</span>
+<a id="__codelineno-14-22" name="__codelineno-14-22" href="#__codelineno-14-22"></a>            <span class="n">t_req</span>    <span class="o">=</span> <span class="n">t_req</span><span class="p">,</span>
+<a id="__codelineno-14-23" name="__codelineno-14-23" href="#__codelineno-14-23"></a>            <span class="n">t_resp</span>   <span class="o">=</span> <span class="n">t_resp</span><span class="p">,</span>
+<a id="__codelineno-14-24" name="__codelineno-14-24" href="#__codelineno-14-24"></a>            <span class="n">latency_ps</span> <span class="o">=</span> <span class="n">t_resp</span> <span class="o">-</span> <span class="n">t_req</span> <span class="k">if</span> <span class="n">t_resp</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-14-25" name="__codelineno-14-25" href="#__codelineno-14-25"></a>        <span class="p">))</span>
+<a id="__codelineno-14-26" name="__codelineno-14-26" href="#__codelineno-14-26"></a>    <span class="k">return</span> <span class="n">transactions</span>
+</code></pre></div>
+<h3 id="53-pipeline-tracer">5.3  Pipeline Tracer<a class="headerlink" href="#53-pipeline-tracer" title="Permanent link">&para;</a></h3>
+<p>The pipeline tracer follows a single instruction through all stages using a sequence of <code>find_first()</code> calls, one per stage boundary. Results are returned as a structured timeline that Claude can reason over directly.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">IssueQueueDecoder</span><span class="p">:</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">trace_instruction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pc</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">dispatch_time_ps</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IQTrace</span><span class="p">:</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>        <span class="c1"># Returns per-stage timeline:</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>        <span class="c1"># dispatch → rename → IQ allocation → src ready → issue / squash</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>        <span class="c1"># with timestamps and operand values at each stage</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">find_phantom_wakeups</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t0_ps</span><span class="p">,</span> <span class="n">t1_ps</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">PhantomWakeup</span><span class="p">]:</span>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>        <span class="c1"># Instruction issued while a source pReg was never marked ready,</span>
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>        <span class="c1"># or was marked ready then squashed before issue.</span>
+</code></pre></div>
+<p>Example Claude Code session output from <code>trace_instruction</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>Instruction PC=0x80341c dispatched at t=1.200µs
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>  Renamed:   pReg42 ← pReg17 + pReg31  (t=1.214µs)
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>  IQ entry:  slot 7 allocated            (t=1.214µs)
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>  pReg17:    ready                       (t=1.310µs)
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>  pReg31:    wakeup broadcast            (t=1.400µs)  ← producer squashed at 1.398µs
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>  Issued:    t=1.440µs  ← src2 not actually ready
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>  → PHANTOM WAKEUP: pReg31 producer (PC=0x80338c) squashed 2ns before issue
+</code></pre></div>
+<hr />
+<h2 id="6-mcp-tool-surface">6  MCP Tool Surface<a class="headerlink" href="#6-mcp-tool-surface" title="Permanent link">&para;</a></h2>
+<p>MCP tools are the interface Claude Code sees. Each tool maps to one or a small composition of query API calls. Tool descriptions guide Claude toward the right query for each debugging task.</p>
+<h3 id="61-wellen-mcp-tools">6.1  wellen MCP Tools<a class="headerlink" href="#61-wellen-mcp-tools" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Inputs</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>search_signals</code></td>
+<td><code>pattern: str</code></td>
+<td>Signal discovery. Always the first call in a session.</td>
+</tr>
+<tr>
+<td><code>get_signal_window</code></td>
+<td><code>signals[], t0, t1</code></td>
+<td>Multi-signal transitions. Auto-summarises if &gt; 200 edges per signal.</td>
+</tr>
+<tr>
+<td><code>find_first</code></td>
+<td><code>predicate, after</code></td>
+<td>First timestamp matching a predicate expression.</td>
+</tr>
+<tr>
+<td><code>find_all</code></td>
+<td><code>predicate, t0, t1</code></td>
+<td>All matching timestamps in window.</td>
+</tr>
+<tr>
+<td><code>get_snapshot</code></td>
+<td><code>signals[], time</code></td>
+<td>Values of all signals at a single point. Cheap multi-signal lookup.</td>
+</tr>
+<tr>
+<td><code>find_anomalies</code></td>
+<td><code>signal, t0, t1</code></td>
+<td>Glitches, unexpected gaps, stuck signals.</td>
+</tr>
+<tr>
+<td><code>waveform_info</code></td>
+<td>—</td>
+<td>Timescale, duration, signal count.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="62-scope-mcp-tools">6.2  µScope MCP Tools<a class="headerlink" href="#62-scope-mcp-tools" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Inputs</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>decode_tilelink</code></td>
+<td><code>t0, t1</code></td>
+<td>Decoded TileLink transactions: address, opcode, source, latency. Includes protocol violations.</td>
+</tr>
+<tr>
+<td><code>decode_axi</code></td>
+<td><code>prefix, t0, t1</code></td>
+<td>AXI4 burst transactions decoded from raw signals.</td>
+</tr>
+<tr>
+<td><code>trace_instruction</code></td>
+<td><code>pc_hex, hint_time</code></td>
+<td>Full pipeline timeline for one instruction: dispatch → rename → IQ → issue/squash.</td>
+</tr>
+<tr>
+<td><code>find_assertion_context</code></td>
+<td><code>signal, time, window</code></td>
+<td>Snapshot all related signals around an assertion fire. Traces asserting signal backwards.</td>
+</tr>
+<tr>
+<td><code>find_phantom_wakeups</code></td>
+<td><code>t0, t1</code></td>
+<td>Instructions that issued despite an operand source being unready or squashed.</td>
+</tr>
+<tr>
+<td><code>find_first_divergence</code></td>
+<td><code>signal_a, signal_b, t0</code></td>
+<td>First time two signals that should match diverge. DUT vs reference comparison.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="63-cli-mode">6.3  CLI Mode<a class="headerlink" href="#63-cli-mode" title="Permanent link">&para;</a></h3>
+<p>The same tool functions are exposed as a CLI for interactive use without Claude Code:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="c1"># MCP mode (Claude Code)</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>waveform-mcp<span class="w"> </span>serve<span class="w"> </span>sim.fst
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="c1"># CLI mode (interactive)</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>waveform-mcp<span class="w"> </span>query<span class="w"> </span>sim.fst<span class="w"> </span>signals<span class="w"> </span><span class="s2">&quot;*tl*valid*&quot;</span>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>waveform-mcp<span class="w"> </span>query<span class="w"> </span>sim.fst<span class="w"> </span>transitions<span class="w"> </span>tb.dut.tl_a_valid<span class="w"> </span>1200ns<span class="w"> </span>1400ns
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>waveform-mcp<span class="w"> </span>query<span class="w"> </span>sim.fst<span class="w"> </span>snapshot<span class="w"> </span>1284ns<span class="w"> </span>tb.dut.tl_a_valid<span class="w"> </span>tb.dut.tl_a_ready
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>waveform-mcp<span class="w"> </span>query<span class="w"> </span>sim.fst<span class="w"> </span>anomalies<span class="w"> </span>tb.dut.clk<span class="w"> </span><span class="m">0</span><span class="w"> </span>10us
+</code></pre></div>
+<hr />
+<h2 id="7-repository-structure">7  Repository Structure<a class="headerlink" href="#7-repository-structure" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>waveform-mcp/
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>  waveform_engine/           ← Rust crate (PyO3)
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>    src/
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>      lib.rs                 ← PyO3 module entry, exported functions
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>      query.rs               ← get_transitions, get_snapshot, find_first ...
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>      predicate.rs           ← Expr enum, evaluation engine
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>      summarise.rs           ← anomaly detection, period inference
+<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>    Cargo.toml               ← wellen + pyo3 + serde dependencies
+<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a>  mcp/
+<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a>    wellen_server.py         ← wellen MCP tool definitions
+<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a>    uscope_server.py         ← µScope MCP tool definitions
+<a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a>    predicate.py             ← Python DSL (Expr dataclasses + operators)
+<a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a>    time_parse.py            ← ns/us/cyc → ps normalisation
+<a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a>    config.py                ← per-design signal name mappings
+<a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a>    decoders/
+<a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a>      tilelink.py
+<a id="__codelineno-18-17" name="__codelineno-18-17" href="#__codelineno-18-17"></a>      axi4.py
+<a id="__codelineno-18-18" name="__codelineno-18-18" href="#__codelineno-18-18"></a>      issue_queue.py
+<a id="__codelineno-18-19" name="__codelineno-18-19" href="#__codelineno-18-19"></a>      pipeline.py
+<a id="__codelineno-18-20" name="__codelineno-18-20" href="#__codelineno-18-20"></a>  cli.py                     ← interactive CLI (same tools, argparse frontend)
+<a id="__codelineno-18-21" name="__codelineno-18-21" href="#__codelineno-18-21"></a>  pyproject.toml             ← maturin build config
+<a id="__codelineno-18-22" name="__codelineno-18-22" href="#__codelineno-18-22"></a>  CLAUDE.md                  ← design context for Claude Code sessions
+</code></pre></div>
+<hr />
+<h2 id="8-implementation-plan">8  Implementation Plan<a class="headerlink" href="#8-implementation-plan" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>Deliverable</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1 — Rust foundation</td>
+<td><code>waveform_engine.so</code> with <code>get_value</code>, <code>get_transitions</code>, <code>get_snapshot</code>, <code>list_signals</code></td>
+<td>wellen as backend. Validate on real FST. CLI smoke test.</td>
+</tr>
+<tr>
+<td>2 — Predicate engine</td>
+<td>Expr AST in Python + evaluation in Rust. <code>find_first</code>, <code>find_all</code>, <code>scan</code>.</td>
+<td>AND/OR/NOT/EQ/RISE/FALL first. Sequence (<code>&gt;&gt;</code>) in phase 3.</td>
+</tr>
+<tr>
+<td>3 — Summarisation</td>
+<td><code>summarize</code>, <code>find_anomalies</code> in Rust. Auto-summarise in <code>get_window</code>.</td>
+<td>Period inference, glitch detection. Validate context window stays bounded.</td>
+</tr>
+<tr>
+<td>4 — wellen MCP</td>
+<td>Full MCP server wired to Rust engine. Claude Code config.</td>
+<td>Verify end-to-end: Claude Code → MCP → PyO3 → wellen → FST.</td>
+</tr>
+<tr>
+<td>5 — TileLink decoder</td>
+<td><code>decode_tilelink</code>, <code>find_violations</code>. Config-driven signal paths.</td>
+<td>Test on existing TileLink sim traces.</td>
+</tr>
+<tr>
+<td>6 — Pipeline decoder</td>
+<td><code>trace_instruction</code>, <code>find_phantom_wakeups</code>.</td>
+<td>Design-specific. Requires IQ signal mapping in config.</td>
+</tr>
+<tr>
+<td>7 — µScope MCP</td>
+<td>Second MCP server with semantic tools.</td>
+<td>Thin layer; heavy work already in wellen MCP + Rust.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="9-key-design-decisions">9  Key Design Decisions<a class="headerlink" href="#9-key-design-decisions" title="Permanent link">&para;</a></h2>
+<h3 id="pyo3-over-subprocess">PyO3 over subprocess<a class="headerlink" href="#pyo3-over-subprocess" title="Permanent link">&para;</a></h3>
+<p>A separate Rust binary speaking a JSON or line protocol over stdio was considered. PyO3 was chosen because it eliminates serialisation overhead entirely, allows Rust to own the scan loop without data copying, and simplifies deployment to a single pip-installable package built with maturin.</p>
+<h3 id="wellen-over-fstapi-ffi">wellen over fstapi FFI<a class="headerlink" href="#wellen-over-fstapi-ffi" title="Permanent link">&para;</a></h3>
+<p>The <code>wellen</code> crate was chosen over a direct C FFI to GTKWave's fstapi because it is written in safe Rust, is actively maintained (it is the backend of the Surfer waveform viewer), and provides a lazy subset-access model that matches the query engine's access pattern. FST, VCD, and GHW are all supported through the same interface.</p>
+<h3 id="wal-rejected">WAL rejected<a class="headerlink" href="#wal-rejected" title="Permanent link">&para;</a></h3>
+<p>WAL (Waveform Analysis Language) was evaluated and rejected. The language is a Lisp-style DSL that is awkward to generate and maintain. Its Python backend (pylibfst) is too slow for large simulation traces. The predicate DSL described in Section 3 provides equivalent expressiveness with native Python syntax and Rust evaluation performance.</p>
+<h3 id="two-mcps-not-one">Two MCPs, not one<a class="headerlink" href="#two-mcps-not-one" title="Permanent link">&para;</a></h3>
+<p>Separating the generic wellen MCP from the µScope semantic MCP keeps each independently useful. The wellen MCP works on any FST/VCD file with no design knowledge. The µScope MCP adds Loom-specific decoders on top. Claude Code can use both in the same session.</p>
+<h3 id="scope-not-derived-from-wellen">µScope not derived from wellen<a class="headerlink" href="#scope-not-derived-from-wellen" title="Permanent link">&para;</a></h3>
+<p>µScope is a purely transaction-oriented format — it does not store signal-granularity data. Attempting to derive wellen from µScope would require reconstructing synthetic signals from transaction fields, which is lossy for sub-transaction behaviour. Instead µScope is a separate semantic view consumed by the µScope MCP, while the wellen MCP handles FST/VCD from the same simulation run when sub-transaction visibility is needed.</p>
+<hr />
+<h2 id="10-future-extensions">10  Future Extensions<a class="headerlink" href="#10-future-extensions" title="Permanent link">&para;</a></h2>
+<ul>
+<li>CHI and custom protocol decoders following the same decoder pattern</li>
+<li>SVA-style temporal logic in the predicate engine (<code>always</code>, <code>eventually</code>, <code>until</code>)</li>
+<li>Formal verification trace support (counterexample traces from model checkers)</li>
+<li>VSCode extension integrating waveform queries alongside RTL source navigation</li>
+<li>Automatic CLAUDE.md generation from waveform hierarchy for cold-start sessions</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["content.code.copy", "navigation.sections", "navigation.expand", "toc.integrate", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
